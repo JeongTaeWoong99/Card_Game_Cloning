@@ -6,8 +6,7 @@ using DG.Tweening;
 public class NotificationPanel : MonoBehaviour
 {
     [SerializeField, FormerlySerializedAs("notificationTMP")] private TMP_Text _notificationTMP;
-
-
+    
     private void Start() => ScaleZero();
 
     public void Show(string message)

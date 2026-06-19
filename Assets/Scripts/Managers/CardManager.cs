@@ -11,23 +11,23 @@ public class CardManager : MonoBehaviour
 
     private enum ECardState { Nothing, CanMouseOver, CanMouseDrag }
 
-    [SerializeField, FormerlySerializedAs("itemSO")]             private ItemSO     _itemSO;
-    [SerializeField, FormerlySerializedAs("cardPrefab")]         private GameObject _cardPrefab;
-    [SerializeField, FormerlySerializedAs("myCards")]            private List<Card> _myCards;
-    [SerializeField, FormerlySerializedAs("otherCards")]         private List<Card> _otherCards;
-    [SerializeField, FormerlySerializedAs("cardSpawnPoint")]     private Transform  _cardSpawnPoint;
-    [SerializeField, FormerlySerializedAs("otherCardSpawnPoint")] private Transform _otherCardSpawnPoint;
-    [SerializeField, FormerlySerializedAs("myCardLeft")]         private Transform  _myCardLeft;
-    [SerializeField, FormerlySerializedAs("myCardRight")]        private Transform  _myCardRight;
-    [SerializeField, FormerlySerializedAs("otherCardLeft")]      private Transform  _otherCardLeft;
-    [SerializeField, FormerlySerializedAs("otherCardRight")]     private Transform  _otherCardRight;
-    [SerializeField, FormerlySerializedAs("eCardState")]         private ECardState _cardState;
+    [SerializeField, FormerlySerializedAs("itemSO")]              private ItemSO     _itemSO;
+    [SerializeField, FormerlySerializedAs("cardPrefab")]          private GameObject _cardPrefab;
+    [SerializeField, FormerlySerializedAs("myCards")]             private List<Card> _myCards;
+    [SerializeField, FormerlySerializedAs("otherCards")]          private List<Card> _otherCards;
+    [SerializeField, FormerlySerializedAs("cardSpawnPoint")]      private Transform  _cardSpawnPoint;
+    [SerializeField, FormerlySerializedAs("otherCardSpawnPoint")] private Transform  _otherCardSpawnPoint;
+    [SerializeField, FormerlySerializedAs("myCardLeft")]          private Transform  _myCardLeft;
+    [SerializeField, FormerlySerializedAs("myCardRight")]         private Transform  _myCardRight;
+    [SerializeField, FormerlySerializedAs("otherCardLeft")]       private Transform  _otherCardLeft;
+    [SerializeField, FormerlySerializedAs("otherCardRight")]      private Transform  _otherCardRight;
+    [SerializeField, FormerlySerializedAs("eCardState")]          private ECardState _cardState;
 
     private List<Item> _itemBuffer;
-    private Card _selectCard;
-    private bool _isMyCardDrag;
-    private bool _onMyCardArea;
-    private int _myPutCount;
+    private Card       _selectCard;
+    private bool       _isMyCardDrag;
+    private bool       _onMyCardArea;
+    private int        _myPutCount;
 
 
     private void Awake()
@@ -38,13 +38,13 @@ public class CardManager : MonoBehaviour
     private void Start()
     {
         SetupItemBuffer();
-        TurnManager.OnAddCard += AddCard;
+        TurnManager.OnAddCard     += AddCard;
         TurnManager.OnTurnStarted += OnTurnStarted;
     }
 
     private void OnDestroy()
     {
-        TurnManager.OnAddCard -= AddCard;
+        TurnManager.OnAddCard     -= AddCard;
         TurnManager.OnTurnStarted -= OnTurnStarted;
     }
 
@@ -83,26 +83,31 @@ public class CardManager : MonoBehaviour
             return false;
         }
 
-        Card card = isMine ? _selectCard : _otherCards[Random.Range(0, _otherCards.Count)];
-        var spawnPos = isMine ? Utils.MousePos : _otherCardSpawnPoint.position;
-        var targetCards = isMine ? _myCards : _otherCards;
+        Card card        = isMine ? _selectCard    : _otherCards[Random.Range(0, _otherCards.Count)];
+        var  spawnPos    = isMine ? Utils.MousePos : _otherCardSpawnPoint.position;
+        var  targetCards = isMine ? _myCards       : _otherCards;
 
         if (EntityManager.Inst.SpawnEntity(isMine, card.item, spawnPos))
         {
             targetCards.Remove(card);
             card.transform.DOKill();
+            
             Destroy(card.gameObject);
+            
             if (isMine)
             {
                 _selectCard = null;
                 _myPutCount++;
             }
+            
             CardAlignment(isMine);
+            
             return true;
         }
 
         targetCards.ForEach(x => x.GetComponent<Order>().SetMostFrontOrder(false));
         CardAlignment(isMine);
+        
         return false;
     }
 

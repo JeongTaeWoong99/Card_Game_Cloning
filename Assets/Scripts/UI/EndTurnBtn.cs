@@ -11,7 +11,7 @@ public class EndTurnBtn : MonoBehaviour
     private Image _image;
     private Button _button;
 
-    private static readonly Color32 ActiveTextColor = new Color32(255, 195, 90, 255);
+    private static readonly Color32 ActiveTextColor   = new Color32(255, 195, 90, 255);
     private static readonly Color32 InactiveTextColor = new Color32(55, 55, 55, 255);
 
 

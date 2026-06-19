@@ -4,10 +4,10 @@ using UnityEngine;
 public class Item
 {
     public string name;
-    public int attack;
-    public int health;
+    public int    attack;
+    public int    health;
     public Sprite sprite;
-    public float percent;
+    public float  percent;
 }
 
 [CreateAssetMenu(fileName = "ItemSO", menuName = "Scriptable Object/ItemSO")]
