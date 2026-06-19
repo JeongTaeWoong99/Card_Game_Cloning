@@ -39,7 +39,14 @@ public static class Utils
     {
         get
         {
-            Vector3 result = MainCamera.ScreenToWorldPoint(Input.mousePosition);
+            Vector3 mousePos = Input.mousePosition;
+            if (float.IsInfinity(mousePos.x) || float.IsNaN(mousePos.x) ||
+                float.IsInfinity(mousePos.y) || float.IsNaN(mousePos.y))
+            {
+                return Vector3.zero;
+            }
+
+            Vector3 result = MainCamera.ScreenToWorldPoint(mousePos);
             result.z = -10f;
             return result;
         }
