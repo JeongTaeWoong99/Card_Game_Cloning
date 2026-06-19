@@ -1,12 +1,11 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.SceneManagement;
 using TMPro;
 using DG.Tweening;
 
 public class ResultPanel : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("resultTMP")] private TMP_Text _resultTMP;
+    [SerializeField] private TMP_Text _resultTMP;
 
 
     private void Start() => ScaleZero();

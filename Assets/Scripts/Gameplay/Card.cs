@@ -1,17 +1,16 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 using TMPro;
 using DG.Tweening;
 
 public class Card : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("card")]      private SpriteRenderer _card;
-    [SerializeField, FormerlySerializedAs("character")] private SpriteRenderer _character;
-    [SerializeField, FormerlySerializedAs("nameTMP")]   private TMP_Text       _nameTMP;
-    [SerializeField, FormerlySerializedAs("attackTMP")] private TMP_Text       _attackTMP;
-    [SerializeField, FormerlySerializedAs("healthTMP")] private TMP_Text       _healthTMP;
-    [SerializeField, FormerlySerializedAs("cardFront")] private Sprite         _cardFront;
-    [SerializeField, FormerlySerializedAs("cardBack")]  private Sprite         _cardBack;
+    [SerializeField] private SpriteRenderer _card;
+    [SerializeField] private SpriteRenderer _character;
+    [SerializeField] private TMP_Text       _nameTMP;
+    [SerializeField] private TMP_Text       _attackTMP;
+    [SerializeField] private TMP_Text       _healthTMP;
+    [SerializeField] private Sprite         _cardFront;
+    [SerializeField] private Sprite         _cardBack;
 
     public Item item;
     public PRS originPRS;

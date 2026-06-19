@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 // 치트, UI, 게임오버 관리
 public class GameManager : MonoBehaviour
@@ -8,12 +7,12 @@ public class GameManager : MonoBehaviour
     public static GameManager Inst { get; private set; }
 
     [Multiline(10)]
-    [SerializeField, FormerlySerializedAs("cheatInfo")]         private string           _cheatInfo;
-    [SerializeField, FormerlySerializedAs("notificationPanel")] private NotificationPanel _notificationPanel;
-    [SerializeField, FormerlySerializedAs("resultPanel")]       private ResultPanel       _resultPanel;
-    [SerializeField, FormerlySerializedAs("titlePanel")]        private TitlePanel        _titlePanel;
-    [SerializeField, FormerlySerializedAs("cameraEffect")]      private CameraEffect      _cameraEffect;
-    [SerializeField, FormerlySerializedAs("endTurnBtn")]        private GameObject        _endTurnBtn;
+    [SerializeField] private string           _cheatInfo;
+    [SerializeField] private NotificationPanel _notificationPanel;
+    [SerializeField] private ResultPanel       _resultPanel;
+    [SerializeField] private TitlePanel        _titlePanel;
+    [SerializeField] private CameraEffect      _cameraEffect;
+    [SerializeField] private GameObject        _endTurnBtn;
 
     private readonly WaitForSeconds _gameOverDelay = new WaitForSeconds(2f);
 

@@ -1,11 +1,10 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 using TMPro;
 using DG.Tweening;
 
 public class NotificationPanel : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("notificationTMP")] private TMP_Text _notificationTMP;
+    [SerializeField] private TMP_Text _notificationTMP;
     
     private void Start() => ScaleZero();
 

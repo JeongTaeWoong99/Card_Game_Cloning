@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 public class TurnManager : MonoBehaviour
@@ -14,9 +13,9 @@ public class TurnManager : MonoBehaviour
     private enum ETurnMode { Random, My, Other }
 
     [Header("Develop")]
-    [SerializeField, FormerlySerializedAs("eTurnMode"), Tooltip("시작 턴 모드를 정합니다")]       private ETurnMode _turnMode;
-    [SerializeField, FormerlySerializedAs("fastMode"), Tooltip("카드 배분이 매우 빨라집니다")]     private bool      _fastMode;
-    [SerializeField, FormerlySerializedAs("startCardCount"), Tooltip("시작 카드 개수를 정합니다")] private int       _startCardCount;
+    [SerializeField, Tooltip("시작 턴 모드를 정합니다")]    private ETurnMode _turnMode;
+    [SerializeField, Tooltip("카드 배분이 매우 빨라집니다")] private bool      _fastMode;
+    [SerializeField, Tooltip("시작 카드 개수를 정합니다")]   private int       _startCardCount;
 
     [Header("Properties")]
     public bool isLoading; // 게임 끝나면 isLoading을 true로 하면 카드와 엔티티 클릭방지

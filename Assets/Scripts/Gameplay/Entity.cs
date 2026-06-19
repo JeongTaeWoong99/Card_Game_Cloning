@@ -1,17 +1,16 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 using TMPro;
 using DG.Tweening;
 
 public class Entity : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("item")]          private Item           _item;
-    [SerializeField, FormerlySerializedAs("entity")]        private SpriteRenderer _entity;
-    [SerializeField, FormerlySerializedAs("character")]     private SpriteRenderer _character;
-    [SerializeField, FormerlySerializedAs("nameTMP")]       private TMP_Text       _nameTMP;
-    [SerializeField, FormerlySerializedAs("attackTMP")]     private TMP_Text       _attackTMP;
-    [SerializeField, FormerlySerializedAs("healthTMP")]     private TMP_Text       _healthTMP;
-    [SerializeField, FormerlySerializedAs("sleepParticle")] private GameObject     _sleepParticle;
+    [SerializeField] private Item           _item;
+    [SerializeField] private SpriteRenderer _entity;
+    [SerializeField] private SpriteRenderer _character;
+    [SerializeField] private TMP_Text       _nameTMP;
+    [SerializeField] private TMP_Text       _attackTMP;
+    [SerializeField] private TMP_Text       _healthTMP;
+    [SerializeField] private GameObject     _sleepParticle;
 
     public int attack;
     public int health;

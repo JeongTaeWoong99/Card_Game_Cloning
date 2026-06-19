@@ -1,21 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 using DG.Tweening;
 
 public class EntityManager : MonoBehaviour
 {
     public static EntityManager Inst { get; private set; }
 
-    [SerializeField, FormerlySerializedAs("entityPrefab")]    private GameObject   _entityPrefab;
-    [SerializeField, FormerlySerializedAs("damagePrefab")]    private GameObject   _damagePrefab;
-    [SerializeField, FormerlySerializedAs("myEntities")]      private List<Entity> _myEntities;
-    [SerializeField, FormerlySerializedAs("otherEntities")]   private List<Entity> _otherEntities;
-    [SerializeField, FormerlySerializedAs("TargetPicker")]    private GameObject   _targetPicker;
-    [SerializeField, FormerlySerializedAs("myEmptyEntity")]   private Entity       _myEmptyEntity;
-    [SerializeField, FormerlySerializedAs("myBossEntity")]    private Entity       _myBossEntity;
-    [SerializeField, FormerlySerializedAs("otherBossEntity")] private Entity       _otherBossEntity;
+    [SerializeField] private GameObject   _entityPrefab;
+    [SerializeField] private GameObject   _damagePrefab;
+    [SerializeField] private List<Entity> _myEntities;
+    [SerializeField] private List<Entity> _otherEntities;
+    [SerializeField] private GameObject   _targetPicker;
+    [SerializeField] private Entity       _myEmptyEntity;
+    [SerializeField] private Entity       _myBossEntity;
+    [SerializeField] private Entity       _otherBossEntity;
 
     private Entity _selectEntity;
     private Entity _targetPickEntity;

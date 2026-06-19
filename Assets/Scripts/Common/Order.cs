@@ -1,11 +1,10 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 
 public class Order : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("backRenderers")]    private Renderer[] _backRenderers;
-    [SerializeField, FormerlySerializedAs("middleRenderers")]  private Renderer[] _middleRenderers;
-    [SerializeField, FormerlySerializedAs("sortingLayerName")] private string     _sortingLayerName;
+    [SerializeField] private Renderer[] _backRenderers;
+    [SerializeField] private Renderer[] _middleRenderers;
+    [SerializeField] private string     _sortingLayerName;
 
     private int _originOrder;
 

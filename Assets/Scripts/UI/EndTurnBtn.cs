@@ -1,12 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Serialization;
 
 public class EndTurnBtn : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("active")]   private Sprite _activeSprite;
-    [SerializeField, FormerlySerializedAs("inactive")] private Sprite _inactiveSprite;
-    [SerializeField, FormerlySerializedAs("btnText")]  private Text   _btnText;
+    [SerializeField] private Sprite _activeSprite;
+    [SerializeField] private Sprite _inactiveSprite;
+    [SerializeField] private Text   _btnText;
 
     private Image _image;
     private Button _button;

@@ -11,17 +11,17 @@ public class CardManager : MonoBehaviour
 
     private enum ECardState { Nothing, CanMouseOver, CanMouseDrag }
 
-    [SerializeField, FormerlySerializedAs("itemSO")]              private ItemSO     _itemSO;
-    [SerializeField, FormerlySerializedAs("cardPrefab")]          private GameObject _cardPrefab;
-    [SerializeField, FormerlySerializedAs("myCards")]             private List<Card> _myCards;
-    [SerializeField, FormerlySerializedAs("otherCards")]          private List<Card> _otherCards;
-    [SerializeField, FormerlySerializedAs("cardSpawnPoint")]      private Transform  _cardSpawnPoint;
-    [SerializeField, FormerlySerializedAs("otherCardSpawnPoint")] private Transform  _otherCardSpawnPoint;
-    [SerializeField, FormerlySerializedAs("myCardLeft")]          private Transform  _myCardLeft;
-    [SerializeField, FormerlySerializedAs("myCardRight")]         private Transform  _myCardRight;
-    [SerializeField, FormerlySerializedAs("otherCardLeft")]       private Transform  _otherCardLeft;
-    [SerializeField, FormerlySerializedAs("otherCardRight")]      private Transform  _otherCardRight;
-    [SerializeField, FormerlySerializedAs("eCardState")]          private ECardState _cardState;
+    [SerializeField] private ItemSO     _itemSO;
+    [SerializeField] private GameObject _cardPrefab;
+    [SerializeField] private List<Card> _myCards;
+    [SerializeField] private List<Card> _otherCards;
+    [SerializeField] private Transform  _cardSpawnPoint;
+    [SerializeField] private Transform  _otherCardSpawnPoint;
+    [SerializeField] private Transform  _myCardLeft;
+    [SerializeField] private Transform  _myCardRight;
+    [SerializeField] private Transform  _otherCardLeft;
+    [SerializeField] private Transform  _otherCardRight;
+    [SerializeField] private ECardState _cardState;
 
     private List<Item> _itemBuffer;
     private Card       _selectCard;

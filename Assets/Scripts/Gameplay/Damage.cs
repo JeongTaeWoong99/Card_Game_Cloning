@@ -1,11 +1,10 @@
 using UnityEngine;
-using UnityEngine.Serialization;
 using TMPro;
 using DG.Tweening;
 
 public class Damage : MonoBehaviour
 {
-    [SerializeField, FormerlySerializedAs("damageTMP")] private TMP_Text _damageTMP;
+    [SerializeField] private TMP_Text _damageTMP;
 
     private Transform _target;
 
