@@ -2,8 +2,10 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 
+// 화면 중앙에 잠깐 떠올랐다 사라지는 안내 메시지(예: "나의 턴") 패널.
 public class NotificationPanel : MonoBehaviour
 {
+    [CenterHeader("< 참조 >")]
     [SerializeField] private TMP_Text _notificationTMP;
     
     private void Start() => ScaleZero();

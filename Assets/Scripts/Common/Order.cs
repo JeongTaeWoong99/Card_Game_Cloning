@@ -2,16 +2,18 @@ using UnityEngine;
 
 public class Order : MonoBehaviour
 {
+    private const int OrderMultiplier = 10;
+    private const int MostFrontOrder  = 100;
+
+    [CenterHeader("< 렌더러 >")]
     [SerializeField] private Renderer[] _backRenderers;
     [SerializeField] private Renderer[] _middleRenderers;
-    [SerializeField] private string     _sortingLayerName;
+
+    [CenterHeader("< 정렬 레이어 >")]
+    [SerializeField] private string _sortingLayerName;
 
     private int _originOrder;
-
-    private const int OrderMultiplier = 10;
-    private const int MostFrontOrder = 100;
-
-
+    
     public void SetOriginOrder(int originOrder)
     {
         _originOrder = originOrder;
@@ -23,6 +25,7 @@ public class Order : MonoBehaviour
         SetOrder(isMostFront ? MostFrontOrder : _originOrder);
     }
 
+    // 같은 order 안에서도 middle이 back보다 항상 위로 오도록 +1 한다 (배수로 간격 확보)
     public void SetOrder(int order)
     {
         int sortingOrder = order * OrderMultiplier;

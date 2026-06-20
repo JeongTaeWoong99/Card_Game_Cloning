@@ -3,8 +3,10 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using DG.Tweening;
 
+// 승리/패배 결과 패널. 스케일 연출로 등장하며 Restart로 씬을 다시 로드한다.
 public class ResultPanel : MonoBehaviour
 {
+    [CenterHeader("< 참조 >")]
     [SerializeField] private TMP_Text _resultTMP;
 
 

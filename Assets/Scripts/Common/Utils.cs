@@ -31,6 +31,7 @@ public static class Utils
             {
                 _mainCamera = Camera.main;
             }
+            
             return _mainCamera;
         }
     }
@@ -40,6 +41,7 @@ public static class Utils
         get
         {
             Vector3 mousePos = Input.mousePosition;
+            
             if (float.IsInfinity(mousePos.x) || float.IsNaN(mousePos.x) ||
                 float.IsInfinity(mousePos.y) || float.IsNaN(mousePos.y))
             {
@@ -48,6 +50,7 @@ public static class Utils
 
             Vector3 result = MainCamera.ScreenToWorldPoint(mousePos);
             result.z = -10f;
+            
             return result;
         }
     }
@@ -58,6 +61,7 @@ public static class Utils
         for (int i = 0; i < list.Count; i++)
         {
             int rand = Random.Range(i, list.Count);
+            
             (list[i], list[rand]) = (list[rand], list[i]);
         }
     }

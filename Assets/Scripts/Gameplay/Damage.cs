@@ -2,15 +2,16 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 
+// 피격 위치에 떠오르는 데미지 숫자 팝업. 대상을 따라다니다 커졌다 사라진다.
 public class Damage : MonoBehaviour
 {
+    [CenterHeader("< 참조 >")]
     [SerializeField] private TMP_Text _damageTMP;
 
     private Transform _target;
 
     private const int DamageOrder = 1000;
-
-
+    
     public void SetupTransform(Transform target)
     {
         _target = target;

@@ -2,9 +2,13 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 
+// 전장에 배치된 카드(엔티티). 스탯·상태를 보유하고 데미지/사망 표시를 처리한다.
 public class Entity : MonoBehaviour
 {
-    [SerializeField] private Item           _item;
+    [CenterHeader("< 데이터 >")]
+    [SerializeField] private Item _item;
+
+    [CenterHeader("< 뷰 참조 >")]
     [SerializeField] private SpriteRenderer _entity;
     [SerializeField] private SpriteRenderer _character;
     [SerializeField] private TMP_Text       _nameTMP;
@@ -12,12 +16,15 @@ public class Entity : MonoBehaviour
     [SerializeField] private TMP_Text       _healthTMP;
     [SerializeField] private GameObject     _sleepParticle;
 
+    [CenterHeader("< 스탯 >")]
     public int attack;
     public int health;
-    public bool isMine;
-    public bool isDie;
-    public bool isBossOrEmpty;
-    public bool attackable;
+
+    [CenterHeader("< 상태 >")]
+    public bool    isMine;
+    public bool    isDie;
+    public bool    isBossOrEmpty;
+    public bool    attackable;
     public Vector3 originPos;
 
     private int _liveCount;
@@ -35,16 +42,17 @@ public class Entity : MonoBehaviour
 
     public void Setup(Item item)
     {
-        _item = item;
+        _item  = item;
         attack = item.attack;
         health = item.health;
 
         _character.sprite = item.sprite;
-        _nameTMP.text = item.name;
-        _attackTMP.text = attack.ToString();
-        _healthTMP.text = health.ToString();
+        _nameTMP.text     = item.name;
+        _attackTMP.text   = attack.ToString();
+        _healthTMP.text   = health.ToString();
     }
 
+    // 데미지를 적용하고 이번 피해로 사망했는지 반환한다
     public bool Damaged(int damage)
     {
         health -= damage;
@@ -53,8 +61,10 @@ public class Entity : MonoBehaviour
         if (health <= 0)
         {
             isDie = true;
+
             return true;
         }
+
         return false;
     }
 
@@ -70,6 +80,7 @@ public class Entity : MonoBehaviour
         }
     }
 
+    // 소환 후 자신의 턴을 한 번 맞이하기 전까지는 잠자는 파티클을 켜 행동 불가(소환 멀미)를 표시한다
     private void OnTurnStarted(bool myTurn)
     {
         if (isBossOrEmpty)
