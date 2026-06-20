@@ -267,3 +267,66 @@ private bool _isTransitioning;
 
 private const int PreloadCount = 2;
 ```
+
+### const / static readonly 는 클래스 최상단
+
+상수는 멤버 필드보다 위, 클래스 선언 직후(`Inst`·enum 다음)에 모아 둔다.
+
+```csharp
+public class Order : MonoBehaviour
+{
+    private const int OrderMultiplier = 10;
+    private const int MostFrontOrder  = 100;
+
+    [SerializeField] private Renderer[] _backRenderers;
+}
+```
+
+### modifier가 다르면 그룹을 나누고, 필요하면 변수를 추가해 타입 열을 맞춘다
+
+`readonly` 같은 키워드 때문에 타입 열이 어긋나면, **변수를 하나 더 만들어서라도**
+같은 modifier 그룹으로 묶어 타입 열을 정렬한다. (가변 1개만 별도 그룹으로 분리)
+
+```csharp
+// Bad — readonly 유무가 섞여 WaitForSeconds 열이 어긋남
+private WaitForSeconds _delay05 = new WaitForSeconds(0.5f);
+private readonly WaitForSeconds _delay07 = new WaitForSeconds(0.7f);
+
+// Good — readonly 그룹으로 타입 열을 맞추고, 가변 선택 필드만 분리
+private readonly WaitForSeconds _addCardDelay     = new WaitForSeconds(0.5f);
+private readonly WaitForSeconds _fastAddCardDelay = new WaitForSeconds(0.05f);
+private readonly WaitForSeconds _turnDelay        = new WaitForSeconds(0.7f);
+
+private WaitForSeconds _currentAddCardDelay; // 조건에 따라 선택되는 현재 딜레이
+```
+
+### event vs Action — 의도를 주석으로 남긴다
+
+- **`event Action<T>`**: 선언 클래스 내부에서만 `Invoke` 가능 → 순수 발행-구독.
+- **`Action<T>`(event 없이)**: 외부 클래스에서도 `Invoke` 해야 할 때(치트, 디버그 등).
+
+둘을 의도적으로 구분해 쓸 때는 **왜 그렇게 했는지** 주석으로 남긴다.
+
+```csharp
+// 외부(GameManager 치트 등)에서도 Invoke 해야 하므로 event가 아닌 Action으로 둔다
+public static Action<bool> OnAddCard;
+
+// 내부에서만 발행하는 순수 발행-구독 이벤트 (외부 Invoke 차단)
+public static event Action<bool> OnTurnStarted;
+```
+
+### 인스펙터 섹션은 [CenterHeader] 로 구분
+
+`[SerializeField]`(또는 직렬화되는 public) 필드가 3개 이상이면 역할별로 헤더를 붙여 가독성을 높인다.
+기본 `[Header]`는 좌측 정렬만 되어 구분이 약하므로, 이 프로젝트는 **가운데 정렬 커스텀 헤더 `[CenterHeader]`** 를 쓴다.
+(`Assets/Scripts/Common/CenterHeaderAttribute.cs` + `Assets/Scripts/Editor/CenterHeaderDrawer.cs`)
+
+텍스트는 `< 참조 >` 처럼 양쪽을 꺾쇠로 감싸 구분을 더 또렷하게 한다.
+
+```csharp
+[CenterHeader("< 참조 >")]
+[SerializeField] private ItemSO _itemSO;
+
+[CenterHeader("< 상태 >")]
+[SerializeField] private ECardState _cardState;
+```
