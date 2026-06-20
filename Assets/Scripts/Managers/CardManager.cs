@@ -1,33 +1,41 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 using DG.Tweening;
 using Random = UnityEngine.Random;
 
+// 손패(아직 전장에 놓이지 않은 카드)의 상태·입력·정렬을 담당한다.
+// 뽑기 버퍼는 Deck, 부채꼴 배치 수학은 CardLayout, 전장 배치는 EntityManager에 위임한다.
 public class CardManager : MonoBehaviour
 {
     public static CardManager Inst { get; private set; }
 
     private enum ECardState { Nothing, CanMouseOver, CanMouseDrag }
 
+    [CenterHeader("< 참조 >")]
     [SerializeField] private ItemSO     _itemSO;
     [SerializeField] private GameObject _cardPrefab;
+
+    [CenterHeader("< 손패 >")]
     [SerializeField] private List<Card> _myCards;
     [SerializeField] private List<Card> _otherCards;
-    [SerializeField] private Transform  _cardSpawnPoint;
-    [SerializeField] private Transform  _otherCardSpawnPoint;
-    [SerializeField] private Transform  _myCardLeft;
-    [SerializeField] private Transform  _myCardRight;
-    [SerializeField] private Transform  _otherCardLeft;
-    [SerializeField] private Transform  _otherCardRight;
+
+    [CenterHeader("< 스폰 / 정렬 기준점 >")]
+    [SerializeField] private Transform _cardSpawnPoint;
+    [SerializeField] private Transform _otherCardSpawnPoint;
+    [SerializeField] private Transform _myCardLeft;
+    [SerializeField] private Transform _myCardRight;
+    [SerializeField] private Transform _otherCardLeft;
+    [SerializeField] private Transform _otherCardRight;
+
+    [CenterHeader("< 상태 >")]
     [SerializeField] private ECardState _cardState;
 
-    private List<Item> _itemBuffer;
-    private Card       _selectCard;
-    private bool       _isMyCardDrag;
-    private bool       _onMyCardArea;
-    private int        _myPutCount;
+    private Deck _deck;
+    private Card _selectCard;
+    private bool _isMyCardDrag;
+    private bool _onMyCardArea;
+    private int  _myPutCount;
 
 
     private void Awake()
@@ -37,7 +45,8 @@ public class CardManager : MonoBehaviour
 
     private void Start()
     {
-        SetupItemBuffer();
+        _deck = new Deck(_itemSO.items);
+
         TurnManager.OnAddCard     += AddCard;
         TurnManager.OnTurnStarted += OnTurnStarted;
     }
@@ -59,18 +68,7 @@ public class CardManager : MonoBehaviour
         SetECardState();
     }
 
-    public Item PopItem()
-    {
-        if (_itemBuffer.Count == 0)
-        {
-            SetupItemBuffer();
-        }
-
-        Item item = _itemBuffer[0];
-        _itemBuffer.RemoveAt(0);
-        return item;
-    }
-
+    // 선택한 카드(아군) 또는 무작위 카드(상대)를 전장에 배치 시도한다. 성공 시 손패에서 제거
     public bool TryPutCard(bool isMine)
     {
         if (isMine && _myPutCount >= 1)
@@ -91,23 +89,24 @@ public class CardManager : MonoBehaviour
         {
             targetCards.Remove(card);
             card.transform.DOKill();
-            
+
             Destroy(card.gameObject);
-            
+
             if (isMine)
             {
                 _selectCard = null;
                 _myPutCount++;
             }
-            
+
             CardAlignment(isMine);
-            
+
             return true;
         }
 
+        // 배치 실패 시 끌어올렸던 order를 되돌리고 정렬 복구한다
         targetCards.ForEach(x => x.GetComponent<Order>().SetMostFrontOrder(false));
         CardAlignment(isMine);
-        
+
         return false;
     }
 
@@ -146,6 +145,7 @@ public class CardManager : MonoBehaviour
             return;
         }
 
+        // 카드 영역 위에서 놓으면 배치 취소(빈 슬롯 제거), 밖에서 놓으면 배치 시도
         if (_onMyCardArea)
         {
             EntityManager.Inst.RemoveMyEmptyEntity();
@@ -164,27 +164,12 @@ public class CardManager : MonoBehaviour
         }
     }
 
-    // percent 비율로 아이템을 채운 뒤 셔플하여 뽑기 버퍼를 만든다
-    private void SetupItemBuffer()
-    {
-        _itemBuffer = new List<Item>(100);
-        for (int i = 0; i < _itemSO.items.Length; i++)
-        {
-            Item item = _itemSO.items[i];
-            for (int j = 0; j < item.percent; j++)
-            {
-                _itemBuffer.Add(item);
-            }
-        }
-
-        Utils.Shuffle(_itemBuffer);
-    }
-
     private void AddCard(bool isMine)
     {
-        var cardObject = Instantiate(_cardPrefab, _cardSpawnPoint.position, Utils.QI);
-        var card = cardObject.GetComponent<Card>();
-        card.Setup(PopItem(), isMine);
+        var spawnPoint = isMine ? _cardSpawnPoint : _otherCardSpawnPoint;
+        var cardObject = Instantiate(_cardPrefab, spawnPoint.position, Utils.QI);
+        var card       = cardObject.GetComponent<Card>();
+        card.Setup(_deck.Pop(), isMine);
         (isMine ? _myCards : _otherCards).Add(card);
 
         SetOriginOrder(isMine);
@@ -201,16 +186,17 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    // 손패를 부채꼴(CardLayout)로 배치한다. 아군은 위로 볼록(+height), 상대는 아래로(-height)
     private void CardAlignment(bool isMine)
     {
         List<PRS> originCardPRSs;
         if (isMine)
         {
-            originCardPRSs = RoundAlignment(_myCardLeft, _myCardRight, _myCards.Count, 0.5f, Vector3.one * 1.9f);
+            originCardPRSs = CardLayout.GetHandPRS(_myCardLeft, _myCardRight, _myCards.Count, 0.5f, Vector3.one * 1.9f);
         }
         else
         {
-            originCardPRSs = RoundAlignment(_otherCardLeft, _otherCardRight, _otherCards.Count, -0.5f, Vector3.one * 1.9f);
+            originCardPRSs = CardLayout.GetHandPRS(_otherCardLeft, _otherCardRight, _otherCards.Count, -0.5f, Vector3.one * 1.9f);
         }
 
         var targetCards = isMine ? _myCards : _otherCards;
@@ -220,41 +206,6 @@ public class CardManager : MonoBehaviour
             targetCard.originPRS = originCardPRSs[i];
             targetCard.MoveTransform(targetCard.originPRS, true, 0.7f);
         }
-    }
-
-    private List<PRS> RoundAlignment(Transform leftTr, Transform rightTr, int objCount, float height, Vector3 scale)
-    {
-        float[] objLerps = new float[objCount];
-        List<PRS> results = new List<PRS>(objCount);
-
-        switch (objCount)
-        {
-            case 1: objLerps = new float[] { 0.5f }; break;
-            case 2: objLerps = new float[] { 0.27f, 0.73f }; break;
-            case 3: objLerps = new float[] { 0.1f, 0.5f, 0.9f }; break;
-            default:
-                float interval = 1f / (objCount - 1);
-                for (int i = 0; i < objCount; i++)
-                {
-                    objLerps[i] = interval * i;
-                }
-                break;
-        }
-
-        for (int i = 0; i < objCount; i++)
-        {
-            var targetPos = Vector3.Lerp(leftTr.position, rightTr.position, objLerps[i]);
-            var targetRot = Utils.QI;
-            if (objCount >= 4)
-            {
-                float curve = Mathf.Sqrt(Mathf.Pow(height, 2) - Mathf.Pow(objLerps[i] - 0.5f, 2));
-                curve = height >= 0 ? curve : -curve;
-                targetPos.y += curve;
-                targetRot = Quaternion.Slerp(leftTr.rotation, rightTr.rotation, objLerps[i]);
-            }
-            results.Add(new PRS(targetPos, targetRot, scale));
-        }
-        return results;
     }
 
     private void CardDrag()
@@ -271,10 +222,11 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    // 마우스가 손패 영역(MyCardArea 레이어) 위에 있는지 검사한다
     private void DetectCardArea()
     {
-        RaycastHit2D[] hits = Physics2D.RaycastAll(Utils.MousePos, Vector3.forward);
-        int layer = LayerMask.NameToLayer("MyCardArea");
+        RaycastHit2D[] hits  = Physics2D.RaycastAll(Utils.MousePos, Vector3.forward);
+        int            layer = LayerMask.NameToLayer("MyCardArea");
         _onMyCardArea = Array.Exists(hits, x => x.collider.gameObject.layer == layer);
     }
 
@@ -282,7 +234,7 @@ public class CardManager : MonoBehaviour
     {
         if (isEnlarge)
         {
-            Vector3 enlargePos = new Vector3(card.originPRS.pos.x, -4.8f, -10f);
+            Vector3 enlargePos = new Vector3(card.originPRS.pos.x, card.originPRS.pos.y + 12.5f, -10f);
             card.MoveTransform(new PRS(enlargePos, Utils.QI, Vector3.one * 3.5f), false);
         }
         else
@@ -293,6 +245,7 @@ public class CardManager : MonoBehaviour
         card.GetComponent<Order>().SetMostFrontOrder(isEnlarge);
     }
 
+    // 로딩 중엔 입력 차단, 내 턴이 아니거나 이미 배치했거나 전장이 가득 차면 확대만, 그 외엔 드래그 허용
     private void SetECardState()
     {
         if (TurnManager.Inst.isLoading)

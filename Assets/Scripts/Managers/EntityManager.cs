@@ -1,34 +1,46 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 
+// 전장(보드) 엔티티의 상태를 소유한다: 스폰 / 빈 슬롯 / 선택·타겟 / 정렬 / 사망 제거.
+// 전투 해석은 CombatSystem, 상대 턴 행동은 EnemyAI, 승패 판정은 GameManager가 담당한다.
 public class EntityManager : MonoBehaviour
 {
     public static EntityManager Inst { get; private set; }
 
-    [SerializeField] private GameObject   _entityPrefab;
-    [SerializeField] private GameObject   _damagePrefab;
+    private const int MaxEntityCount = 6;
+
+    [CenterHeader("< 프리팹 >")]
+    [SerializeField] private GameObject _entityPrefab;
+
+    [CenterHeader("< 진영 엔티티 >")]
     [SerializeField] private List<Entity> _myEntities;
     [SerializeField] private List<Entity> _otherEntities;
-    [SerializeField] private GameObject   _targetPicker;
-    [SerializeField] private Entity       _myEmptyEntity;
-    [SerializeField] private Entity       _myBossEntity;
-    [SerializeField] private Entity       _otherBossEntity;
+
+    [CenterHeader("< 보스 / 빈 슬롯 >")]
+    [SerializeField] private Entity _myEmptyEntity;
+    [SerializeField] private Entity _myBossEntity;
+    [SerializeField] private Entity _otherBossEntity;
+
+    [CenterHeader("< 타겟 표시 >")]
+    [SerializeField] private GameObject _targetPicker;
 
     private Entity _selectEntity;
     private Entity _targetPickEntity;
-    private readonly WaitForSeconds _delay1 = new WaitForSeconds(1f);
-    private readonly WaitForSeconds _delay2 = new WaitForSeconds(2f);
 
-    private const int MaxEntityCount = 6;
+    // 외부(CombatSystem/EnemyAI/GameManager)가 보드 상태를 질의하기 위한 읽기 전용 노출
+    public IReadOnlyList<Entity> MyEntities    => _myEntities;
+    public IReadOnlyList<Entity> OtherEntities => _otherEntities;
+    public Entity                MyBoss        => _myBossEntity;
+    public Entity                OtherBoss     => _otherBossEntity;
 
     public bool IsFullMyEntities => _myEntities.Count >= MaxEntityCount && !ExistMyEmptyEntity;
-    private bool IsFullOtherEntities => _otherEntities.Count >= MaxEntityCount;
+
+    private bool IsFullOtherEntities   => _otherEntities.Count >= MaxEntityCount;
     private bool ExistTargetPickEntity => _targetPickEntity != null;
-    private bool ExistMyEmptyEntity => _myEntities.Exists(x => x == _myEmptyEntity);
-    private int MyEmptyEntityIndex => _myEntities.FindIndex(x => x == _myEmptyEntity);
-    private bool CanMouseInput => TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading;
+    private bool ExistMyEmptyEntity    => _myEntities.Exists(x => x == _myEmptyEntity);
+    private int  MyEmptyEntityIndex    => _myEntities.FindIndex(x => x == _myEmptyEntity);
+    private bool CanMouseInput         => TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading;
 
 
     private void Awake()
@@ -51,6 +63,7 @@ public class EntityManager : MonoBehaviour
         ShowTargetPicker(ExistTargetPickEntity);
     }
 
+    // 빈 슬롯(아군) 또는 빈자리(상대)에 엔티티를 생성한다. 가득 찼으면 false
     public bool SpawnEntity(bool isMine, Item item, Vector3 spawnPos)
     {
         if (isMine)
@@ -69,7 +82,7 @@ public class EntityManager : MonoBehaviour
         }
 
         var entityObject = Instantiate(_entityPrefab, spawnPos, Utils.QI);
-        var entity = entityObject.GetComponent<Entity>();
+        var entity       = entityObject.GetComponent<Entity>();
 
         if (isMine)
         {
@@ -87,6 +100,7 @@ public class EntityManager : MonoBehaviour
         return true;
     }
 
+    // 드래그한 카드의 x 위치에 임시 빈 슬롯을 끼워 넣고, 위치 순으로 정렬해 미리보기를 제공한다
     public void InsertMyEmptyEntity(float xPos)
     {
         if (IsFullMyEntities)
@@ -103,6 +117,7 @@ public class EntityManager : MonoBehaviour
         emptyEntityPos.x = xPos;
         _myEmptyEntity.transform.position = emptyEntityPos;
 
+        // 빈 슬롯의 인덱스가 바뀌었을 때만 재정렬한다
         int emptyEntityIndex = MyEmptyEntityIndex;
         _myEntities.Sort((entity1, entity2) => entity1.transform.position.x.CompareTo(entity2.transform.position.x));
         if (MyEmptyEntityIndex != emptyEntityIndex)
@@ -142,10 +157,10 @@ public class EntityManager : MonoBehaviour
         // selectEntity, targetPickEntity 둘 다 존재하고 공격 가능하면 공격한다
         if (_selectEntity && _targetPickEntity && _selectEntity.attackable)
         {
-            Attack(_selectEntity, _targetPickEntity);
+            CombatSystem.Inst.Attack(_selectEntity, _targetPickEntity);
         }
 
-        _selectEntity = null;
+        _selectEntity     = null;
         _targetPickEntity = null;
     }
 
@@ -164,105 +179,29 @@ public class EntityManager : MonoBehaviour
             if (entity != null && !entity.isMine && _selectEntity.attackable)
             {
                 _targetPickEntity = entity;
-                existTarget = true;
+                existTarget       = true;
                 break;
             }
         }
+
         if (!existTarget)
         {
             _targetPickEntity = null;
         }
     }
 
+    // 보스에게 직접 데미지 (치트용)
     public void DamageBoss(bool isMine, int damage)
     {
         var targetBossEntity = isMine ? _myBossEntity : _otherBossEntity;
         targetBossEntity.Damaged(damage);
-        StartCoroutine(CheckBossDie());
+
+        GameManager.Inst.CheckBattleResult();
     }
 
-    public void AttackableReset(bool isMine)
+    // 죽은 엔티티(보스·빈칸 제외)를 흔들기→축소 연출 후 제거하고 진영을 재정렬한다
+    public void RemoveDeadAndRealign(params Entity[] entities)
     {
-        var targetEntities = isMine ? _myEntities : _otherEntities;
-        targetEntities.ForEach(x => x.attackable = true);
-    }
-
-    private void OnTurnStarted(bool myTurn)
-    {
-        AttackableReset(myTurn);
-
-        if (!myTurn)
-        {
-            StartCoroutine(AICo());
-        }
-    }
-
-    private IEnumerator AICo()
-    {
-        CardManager.Inst.TryPutCard(false);
-        yield return _delay1;
-
-        // attackable 한 otherEntities를 모아 순서를 섞는다
-        var attackers = new List<Entity>(_otherEntities.FindAll(x => x.attackable));
-        Utils.Shuffle(attackers);
-
-        // 보스를 포함한 myEntities를 랜덤하게 시간차로 공격한다
-        foreach (var attacker in attackers)
-        {
-            var defenders = new List<Entity>(_myEntities) { _myBossEntity };
-            int rand = Random.Range(0, defenders.Count);
-            Attack(attacker, defenders[rand]);
-
-            if (TurnManager.Inst.isLoading)
-            {
-                yield break;
-            }
-
-            yield return _delay2;
-        }
-        TurnManager.Inst.EndTurn();
-    }
-
-    private void EntityAlignment(bool isMine)
-    {
-        float targetY = isMine ? -4.35f : 4.15f;
-        var targetEntities = isMine ? _myEntities : _otherEntities;
-
-        for (int i = 0; i < targetEntities.Count; i++)
-        {
-            float targetX = (targetEntities.Count - 1) * -3.4f + i * 6.8f;
-
-            var targetEntity = targetEntities[i];
-            targetEntity.originPos = new Vector3(targetX, targetY, 0f);
-            targetEntity.MoveTransform(targetEntity.originPos, true, 0.5f);
-            targetEntity.GetComponent<Order>()?.SetOriginOrder(i);
-        }
-    }
-
-    private void Attack(Entity attacker, Entity defender)
-    {
-        // attacker가 defender 위치로 이동했다가 원래 위치로 돌아온다 (이때 order를 높인다)
-        attacker.attackable = false;
-        attacker.GetComponent<Order>().SetMostFrontOrder(true);
-
-        DOTween.Sequence()
-            .Append(attacker.transform.DOMove(defender.originPos, 0.4f)).SetEase(Ease.InSine)
-            .AppendCallback(() =>
-            {
-                attacker.Damaged(defender.attack);
-                defender.Damaged(attacker.attack);
-                SpawnDamage(defender.attack, attacker.transform);
-                SpawnDamage(attacker.attack, defender.transform);
-            })
-            .Append(attacker.transform.DOMove(attacker.originPos, 0.4f)).SetEase(Ease.OutSine)
-            .OnComplete(() => AttackCallback(attacker, defender));
-    }
-
-    private void AttackCallback(params Entity[] entities)
-    {
-        // 죽은 엔티티(보스·빈칸 제외)를 제거 처리한다
-        entities[0].GetComponent<Order>().SetMostFrontOrder(false);
-
         foreach (var entity in entities)
         {
             if (!entity.isDie || entity.isBossOrEmpty)
@@ -288,39 +227,36 @@ public class EntityManager : MonoBehaviour
                     Destroy(entity.gameObject);
                 });
         }
-        StartCoroutine(CheckBossDie());
     }
 
-    private IEnumerator CheckBossDie()
+    private void OnTurnStarted(bool myTurn)
     {
-        yield return _delay2;
+        CombatSystem.Inst.AttackableReset(myTurn);
 
-        if (_myBossEntity.isDie)
+        if (!myTurn)
         {
-            StartCoroutine(GameManager.Inst.GameOver(false));
-        }
-
-        if (_otherBossEntity.isDie)
-        {
-            StartCoroutine(GameManager.Inst.GameOver(true));
+            EnemyAI.Inst.Play();
         }
     }
 
-    private void SpawnDamage(int damage, Transform target)
+    // 엔티티들을 BoardLayout이 계산한 슬롯 위치로 이동시키고 정렬 순서를 갱신한다
+    private void EntityAlignment(bool isMine)
     {
-        if (damage <= 0)
-        {
-            return;
-        }
+        var targetEntities = isMine ? _myEntities : _otherEntities;
 
-        var damageComponent = Instantiate(_damagePrefab).GetComponent<Damage>();
-        damageComponent.SetupTransform(target);
-        damageComponent.Damaged(damage);
+        for (int i = 0; i < targetEntities.Count; i++)
+        {
+            var targetEntity = targetEntities[i];
+            targetEntity.originPos = BoardLayout.GetSlotPosition(isMine, i, targetEntities.Count);
+            targetEntity.MoveTransform(targetEntity.originPos, true, 0.5f);
+            targetEntity.GetComponent<Order>()?.SetOriginOrder(i);
+        }
     }
 
     private void ShowTargetPicker(bool isShow)
     {
         _targetPicker.SetActive(isShow);
+
         if (ExistTargetPickEntity)
         {
             _targetPicker.transform.position = _targetPickEntity.transform.position;
