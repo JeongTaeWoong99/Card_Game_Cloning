@@ -1,17 +1,35 @@
 using UnityEngine;
 
-// 전장(보드)에 배치된 엔티티들의 슬롯 위치를 계산한다.
-// 위치 상수는 가로형 기준이며, 세로형 레이아웃 재조정은 콘텐츠 단계에서 진행한다.
+// 전장(보드) 슬롯 위치를 계산한다.
+// 앞줄(공개) / 뒷줄(대기) 2행과 내 / 상대 진영을 지원한다. (행당 최대 3슬롯)
+// 위치 상수는 기준값이며, 세부 좌표는 에디터에서 화면에 맞게 튜닝한다.
 public static class BoardLayout
 {
-    private const float MyRowY      = -4.35f;  // 아군 행 y
-    private const float OtherRowY   =  4.15f;  // 상대 행 y
-    private const float SlotSpacing =  6.8f;   // 슬롯 간 가로 간격
-
-    // count개를 가로로 가운데 정렬했을 때 index번째 슬롯의 월드 위치
-    public static Vector3 GetSlotPosition(bool isMine, int index, int count)
+    private const float MyFrontY    = -5f;    // 내 앞줄(공개) y
+    private const float MyBackY     = -14f;   // 내 뒷줄(대기) y
+    private const float OtherFrontY =  5f;    // 상대 앞줄(공개) y
+    private const float OtherBackY  =  14f;   // 상대 뒷줄(대기) y
+    
+    private const float MyRowSplitY = -9.5f;  // 내 앞줄/뒷줄 구분 기준 y (MyFrontY와 MyBackY의 중간)
+    
+    private const float SlotSpacing =  7f;    // 슬롯 간 가로 간격
+    
+    // 내 진영에서 드롭 y가 앞줄(공개)인지 뒷줄(대기)인지 판정한다 (배치 입력용)
+    public static bool IsMyFrontRow(float y)
     {
-        float y = isMine ? MyRowY : OtherRowY;
+        return y > MyRowSplitY;
+    }
+
+    // 진영·행에 맞춰 count개를 가로 중앙 정렬했을 때 index번째 슬롯의 월드 위치
+    public static Vector3 GetSlotPosition(bool isMine, bool isFront, int index, int count)
+    {
+        float y = (isMine, isFront) switch
+        {
+            (true,  true)  => MyFrontY,
+            (true,  false) => MyBackY,
+            (false, true)  => OtherFrontY,
+            _              => OtherBackY, // (false, false)
+        };
         float x = (count - 1) * -(SlotSpacing * 0.5f) + index * SlotSpacing;
 
         return new Vector3(x, y, 0f);

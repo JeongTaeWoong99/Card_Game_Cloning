@@ -2,7 +2,8 @@ using UnityEngine;
 using TMPro;
 using DG.Tweening;
 
-// 전장에 배치된 카드(엔티티). 스탯·상태를 보유하고 데미지/사망 표시를 처리한다.
+// 전장에 배치된 카드(엔티티). 스탯·상태를 보유하고 데미지/사망/앞뒷면 표시를 처리한다.
+// 앞줄(공개)은 전투에 참여하고, 뒷줄(대기)은 공격·피격이 불가하다.
 public class Entity : MonoBehaviour
 {
     [CenterHeader("< 데이터 >")]
@@ -16,6 +17,10 @@ public class Entity : MonoBehaviour
     [SerializeField] private TMP_Text       _healthTMP;
     [SerializeField] private GameObject     _sleepParticle;
 
+    [CenterHeader("< 스프라이트 >")]
+    [SerializeField] private Sprite _cardFront; // 앞면(공개) 테두리
+    [SerializeField] private Sprite _cardBack;  // 뒷면(상대 대기 카드)
+
     [CenterHeader("< 스탯 >")]
     public int attack;
     public int health;
@@ -23,36 +28,67 @@ public class Entity : MonoBehaviour
     [CenterHeader("< 상태 >")]
     public bool    isMine;
     public bool    isDie;
-    public bool    isBossOrEmpty;
+    public bool    isEmpty;    // 배치 미리보기용 빈 슬롯 (제거·전투 제외)
+    public bool    isWaiting;  // 뒷줄 대기 카드 (공격·피격 불가)
     public bool    attackable;
     public Vector3 originPos;
 
-    private int _liveCount;
+    private int _waitCount; // 공격 가능까지 남은 자기 턴 수 (속성별 대기시간)
 
 
-    // 턴 이벤트 구독 (Unity 메시지)
-    private void Start()
+    // 스탯·뷰·대기시간을 초기화한다 (스폰 시 EntityManager.SpawnEntity가 호출)
+    // showFront: 앞면(스탯 노출) 여부, waiting: 뒷줄 대기 여부
+    public void Setup(Item item, bool showFront, bool waiting)
     {
-        TurnManager.OnTurnStarted += OnTurnStarted;
+        _item      = item;
+        attack     = item.attack;
+        health     = item.health;
+        isWaiting  = waiting;
+        _waitCount = item.type.GetWaitTurn();
+
+        SetFront(showFront);
+        _sleepParticle.SetActive(!isWaiting && _waitCount > 0);
     }
 
-    // 이벤트 구독 해제 (Unity 메시지)
-    private void OnDestroy()
+    // 앞면(공개)/뒷면(가림) 표시를 전환한다 (Card.cs의 뒷면 처리 패턴과 동일)
+    public void SetFront(bool isFront)
     {
-        TurnManager.OnTurnStarted -= OnTurnStarted;
+        _entity.sprite     = isFront ? _cardFront : _cardBack;
+        _character.enabled = isFront;
+
+        if (isFront)
+        {
+            _character.sprite = _item.sprite;
+            _nameTMP.text     = _item.name;
+            _attackTMP.text   = attack.ToString();
+            _healthTMP.text   = health.ToString();
+        }
+        else
+        {
+            _nameTMP.text   = "";
+            _attackTMP.text = "";
+            _healthTMP.text = "";
+        }
     }
 
-    // 스탯·뷰 초기화 (스폰 시 EntityManager.SpawnEntity가 호출)
-    public void Setup(Item item)
+    // 뒷줄 대기 → 앞줄 공개로 승격한다. 공개로 전환하고 대기시간을 다시 건다 (EntityManager가 호출)
+    public void Promote()
     {
-        _item  = item;
-        attack = item.attack;
-        health = item.health;
+        isWaiting  = false;
+        attackable = false;
+        _waitCount = _item.type.GetWaitTurn();
 
-        _character.sprite = item.sprite;
-        _nameTMP.text     = item.name;
-        _attackTMP.text   = attack.ToString();
-        _healthTMP.text   = health.ToString();
+        SetFront(true);
+        _sleepParticle.SetActive(_waitCount > 0);
+    }
+
+    // 세팅 단계에서 행을 옮길 때 대기 상태·표시를 갱신한다 (내 카드는 항상 앞면)
+    public void SetRowState(bool isFrontRow)
+    {
+        isWaiting = !isFrontRow;
+
+        SetFront(true);
+        _sleepParticle.SetActive(!isWaiting && _waitCount > 0);
     }
 
     // 데미지를 적용하고 이번 피해로 사망했는지 반환한다
@@ -84,26 +120,33 @@ public class Entity : MonoBehaviour
         }
     }
 
-    // 소환 후 자신의 턴을 한 번 맞이하기 전까지 잠자는 파티클을 켜 행동 불가(소환 멀미)를 표시 (OnTurnStarted 구독)
-    private void OnTurnStarted(bool myTurn)
+    // 자기 턴 시작 시 호출 — 대기시간을 1 줄이고 공격 가능 여부·잠자기 파티클을 갱신한다
+    // (EntityManager.OnTurnStarted가 진영 순서를 보장하며 호출)
+    public void OnMyTurnStart()
     {
-        if (isBossOrEmpty)
+        if (isEmpty || isWaiting)
         {
             return;
         }
 
-        if (isMine == myTurn)
+        if (_waitCount > 0)
         {
-            _liveCount++;
+            attackable = false; // 이번 턴은 아직 대기
+            _waitCount--;
+        }
+        else
+        {
+            attackable = true;
         }
 
-        _sleepParticle.SetActive(_liveCount < 1);
+        // 공격이 불가능한 동안에는 잠자기(소환 멀미) 파티클을 계속 띄운다
+        _sleepParticle.SetActive(!attackable);
     }
 
-    // 내 엔티티 누름 — 공격자 선택 (Unity 마우스 메시지)
+    // 내 앞줄 엔티티 누름 — 공격자 선택 (Unity 마우스 메시지)
     private void OnMouseDown()
     {
-        if (isMine)
+        if (isMine && !isEmpty)
         {
             EntityManager.Inst.EntityMouseDown(this);
         }
@@ -112,7 +155,7 @@ public class Entity : MonoBehaviour
     // 손 뗌 — 공격 실행 판정 (Unity 마우스 메시지)
     private void OnMouseUp()
     {
-        if (isMine)
+        if (isMine && !isEmpty)
         {
             EntityManager.Inst.EntityMouseUp();
         }
@@ -121,7 +164,7 @@ public class Entity : MonoBehaviour
     // 드래그 — 타겟 지정 (Unity 마우스 메시지)
     private void OnMouseDrag()
     {
-        if (isMine)
+        if (isMine && !isEmpty)
         {
             EntityManager.Inst.EntityMouseDrag();
         }

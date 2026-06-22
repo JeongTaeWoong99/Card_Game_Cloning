@@ -1,36 +1,42 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
-// 턴 흐름을 제어한다: 게임 시작 시 카드 분배 → 턴 시작/종료 이벤트 발행.
+// 게임 흐름을 제어한다.
+// Setup(배치) 페이즈: 손패 6장 분배 → 플레이어/상대가 앞줄 3 + 뒷줄 3을 배치.
+// Battle(전투) 페이즈: 배치 완료 버튼 이후 턴 시작/종료 + 스킬 드로우(현재는 디버그) 이벤트 발행.
 public class TurnManager : MonoBehaviour
 {
     public static TurnManager Inst { get; private set; }
 
     // 외부(GameManager 치트 등)에서도 Invoke 해야 하므로 event가 아닌 Action으로 둔다
-    // (event는 선언 클래스 내부에서만 Invoke 가능)
     public static Action<bool> OnAddCard;
 
     // 내부에서만 발행하는 순수 발행-구독 이벤트 (외부 Invoke 차단)
     public static event Action<bool> OnTurnStarted;
 
-    private enum ETurnMode { Random, My, Other }
+    public enum EGamePhase { Setup, Battle }
+
+    private const int StartCardCount    = 6; // 시작 손패 수 (앞줄 3 + 뒷줄 3)
+    private const int FirstTurnSkillDraw = 3; // 첫 턴 스킬 드로우 시도 수
+    private const int TurnSkillDraw      = 1; // 이후 매 턴 스킬 드로우 시도 수
 
     [CenterHeader("< Develop >")]
-    [SerializeField, Tooltip("시작 턴 모드를 정합니다")]    private ETurnMode _turnMode;
-    [SerializeField, Tooltip("카드 배분이 매우 빨라집니다")] private bool      _fastMode;
-    [SerializeField, Tooltip("시작 카드 개수를 정합니다")]   private int       _startCardCount;
+    [SerializeField, Tooltip("카드 배분이 매우 빨라집니다")] private bool _fastMode;
 
     [CenterHeader("< Properties >")]
     public bool isLoading; // true면 카드·엔티티 클릭을 막는다 (분배 중·게임오버 등)
     public bool myTurn;
+    public EGamePhase phase;
+
+    public bool IsBattlePhase => phase == EGamePhase.Battle;
 
     private readonly WaitForSeconds _addCardDelay     = new WaitForSeconds(0.5f);
     private readonly WaitForSeconds _fastAddCardDelay = new WaitForSeconds(0.05f);
     private readonly WaitForSeconds _turnDelay        = new WaitForSeconds(0.7f);
 
     private WaitForSeconds _currentAddCardDelay; // _fastMode에 따라 선택되는 현재 카드 분배 딜레이
+    private bool           _isFirstBattleTurn;   // 전투 첫 턴 여부 (스킬 3장 드로우)
 
 
     // 싱글톤 등록 (Unity 메시지)
@@ -39,15 +45,16 @@ public class TurnManager : MonoBehaviour
         Inst = this;
     }
 
-    #region 초기화
+    #region 초기화 / 배치 페이즈
 
-    // 게임 시작 코루틴 — 선공 결정 후 시작 카드를 상대→나 순으로 번갈아 분배 (GameManager.StartGame이 호출)
+    // 게임 시작 코루틴 — 손패 6장씩 분배 후 배치 페이즈로 진입한다 (GameManager.StartGame이 호출)
     public IEnumerator StartGameCo()
     {
         GameSetup();
         isLoading = true;
+        phase     = EGamePhase.Setup;
 
-        for (int i = 0; i < _startCardCount; i++)
+        for (int i = 0; i < StartCardCount; i++)
         {
             yield return _currentAddCardDelay;
 
@@ -58,25 +65,34 @@ public class TurnManager : MonoBehaviour
             OnAddCard?.Invoke(true);  // 내 카드 한 장
         }
 
-        StartCoroutine(StartTurnCo());
+        EnemyAI.Inst.SetupPlace(); // 상대가 자기 6장을 자동 배치
+        isLoading = false;         // 내 배치 입력 허용
     }
 
-    // fastMode 딜레이 선택 + 선공(myTurn) 결정
+    // fastMode 딜레이 선택
     private void GameSetup()
     {
         _currentAddCardDelay = _fastMode ? _fastAddCardDelay : _addCardDelay;
+    }
 
-        myTurn = _turnMode switch
+    // 배치 완료 — 전투 페이즈로 전환하고 내 선공으로 첫 턴을 시작한다 (SetupDoneBtn이 호출)
+    public void OnSetupDone()
+    {
+        if (phase != EGamePhase.Setup)
         {
-            ETurnMode.My    => true,
-            ETurnMode.Other => false,
-            _               => Random.Range(0, 2) == 0, // Random 모드는 동전 던지기
-        };
+            return;
+        }
+
+        phase              = EGamePhase.Battle;
+        myTurn             = true; // 배치 완료 후 내가 선공
+        _isFirstBattleTurn = true;
+
+        StartCoroutine(StartTurnCo());
     }
 
     #endregion
 
-    #region 게임 진행
+    #region 전투 페이즈
 
     // 턴 종료 — 턴을 넘기고 다음 턴 시작 (EndTurnBtn 버튼·EnemyAI·치트가 호출)
     public void EndTurn()
@@ -86,7 +102,7 @@ public class TurnManager : MonoBehaviour
         StartCoroutine(StartTurnCo());
     }
 
-    // 턴 시작 — 알림 → 카드 1장 분배 → 입력 잠금 해제 → OnTurnStarted 발행
+    // 턴 시작 — 알림 → 스킬 드로우 시도 → 입력 잠금 해제 → OnTurnStarted 발행
     private IEnumerator StartTurnCo()
     {
         isLoading = true;
@@ -95,13 +111,16 @@ public class TurnManager : MonoBehaviour
 
         yield return _turnDelay;
 
-        OnAddCard?.Invoke(myTurn); // 턴 시작 시 카드 보충
+        // 전장 배치 이후 드로우는 스킬 카드만 (미제작이라 현재는 디버그만 출력)
+        int drawCount = _isFirstBattleTurn ? FirstTurnSkillDraw : TurnSkillDraw;
+        CardManager.Inst.DrawSkillCards(myTurn, drawCount);
+        _isFirstBattleTurn = false;
 
         yield return _turnDelay;
 
         isLoading = false;
 
-        OnTurnStarted?.Invoke(myTurn); // 구독자들(매니저·엔티티·버튼)에게 턴 시작 알림
+        OnTurnStarted?.Invoke(myTurn); // 구독자들(매니저·버튼)에게 턴 시작 알림
     }
 
     #endregion

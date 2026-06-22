@@ -17,17 +17,6 @@ public class CombatSystem : MonoBehaviour
         Inst = this;
     }
 
-    // 턴 시작 시 해당 진영 엔티티들의 공격 가능 상태를 복구한다 (EntityManager.OnTurnStarted가 호출)
-    public void AttackableReset(bool isMine)
-    {
-        var targetEntities = isMine ? EntityManager.Inst.MyEntities : EntityManager.Inst.OtherEntities;
-
-        foreach (var entity in targetEntities)
-        {
-            entity.attackable = true;
-        }
-    }
-
     // attacker가 defender 위치로 이동했다가 돌아오며 서로 데미지를 주고받는다 (이동 중 order를 높임)
     // (EntityManager.EntityMouseUp · EnemyAI가 호출)
     public void Attack(Entity attacker, Entity defender)

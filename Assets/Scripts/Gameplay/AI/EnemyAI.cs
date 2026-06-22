@@ -2,11 +2,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// 상대(컴퓨터) 턴 행동을 담당한다.
-// 카드를 한 장 배치한 뒤, 공격 가능한 자신의 엔티티들로 아군(보스 포함)을 무작위·시간차로 공격하고 턴을 종료한다.
+// 상대(컴퓨터)의 행동을 담당한다.
+// Setup 페이즈: 자기 6장을 앞줄 3 + 뒷줄 3에 자동 배치.
+// Battle 페이즈: 공격 가능한 앞줄 엔티티로 내 앞줄 카드를 무작위·시간차로 공격하고 턴을 종료.
 public class EnemyAI : MonoBehaviour
 {
     public static EnemyAI Inst { get; private set; }
+
+    private const int RowCount = 3; // 한 행에 놓을 카드 수
 
     private readonly WaitForSeconds _putDelay    = new WaitForSeconds(1f);
     private readonly WaitForSeconds _attackDelay = new WaitForSeconds(2f);
@@ -17,31 +20,68 @@ public class EnemyAI : MonoBehaviour
         Inst = this;
     }
 
+    #region 배치 페이즈
+
+    // 상대 자동 배치 시작 (TurnManager.StartGameCo가 호출)
+    public void SetupPlace()
+    {
+        StartCoroutine(SetupPlaceCo());
+    }
+
+    // 앞줄 3장 → 뒷줄 3장 순으로 자기 손패를 배치한다
+    private IEnumerator SetupPlaceCo()
+    {
+        for (int i = 0; i < RowCount; i++)
+        {
+            CardManager.Inst.TryPutCard(false, true); // 앞줄
+            yield return _putDelay;
+        }
+
+        for (int i = 0; i < RowCount; i++)
+        {
+            CardManager.Inst.TryPutCard(false, false); // 뒷줄
+            yield return _putDelay;
+        }
+    }
+
+    #endregion
+
+    #region 전투 페이즈
+
     // 상대 턴 행동 시작 (상대 턴에 EntityManager.OnTurnStarted가 호출)
     public void Play()
     {
         StartCoroutine(PlayCo());
     }
 
-    // 상대 턴 본체 — 카드 한 장 배치 → 공격 가능 엔티티로 무작위·시간차 공격 → 턴 종료
+    // 공격 가능한 앞줄 엔티티로 내 앞줄 카드를 무작위·시간차로 공격 → 턴 종료
     private IEnumerator PlayCo()
     {
-        CardManager.Inst.TryPutCard(false);
-
         yield return _putDelay;
 
-        // 공격 가능한 상대 엔티티만 모아 순서를 섞는다
-        var attackers = new List<Entity>(EntityManager.Inst.OtherEntities).FindAll(x => x.attackable);
+        // 공격 가능한 상대 앞줄 엔티티만 모아 순서를 섞는다
+        var attackers = new List<Entity>(EntityManager.Inst.OtherFront).FindAll(x => x.attackable);
         Utils.Shuffle(attackers);
 
         foreach (var attacker in attackers)
         {
-            // 매 공격마다 최신 아군 목록 + 보스를 후보로 삼아 무작위 타겟을 고른다
-            var defenders = new List<Entity>(EntityManager.Inst.MyEntities) { EntityManager.Inst.MyBoss };
-            int rand      = Random.Range(0, defenders.Count);
+            // 반격으로 먼저 죽은 공격자는 건너뛴다
+            if (attacker == null || attacker.isDie)
+            {
+                continue;
+            }
+
+            // 매 공격마다 최신 내 앞줄을 후보로 삼아 무작위 타겟을 고른다
+            var defenders = new List<Entity>(EntityManager.Inst.MyFront);
+            if (defenders.Count == 0)
+            {
+                break;
+            }
+
+            int rand = Random.Range(0, defenders.Count);
             CombatSystem.Inst.Attack(attacker, defenders[rand]);
 
-            // 공격 도중 게임이 끝나면(보스 사망 등) 즉시 중단한다
+            // 공격 도중 게임이 끝나면(전멸 등) 즉시 중단한다
             if (TurnManager.Inst.isLoading)
             {
                 yield break;
@@ -52,4 +92,6 @@ public class EnemyAI : MonoBehaviour
 
         TurnManager.Inst.EndTurn();
     }
+
+    #endregion
 }

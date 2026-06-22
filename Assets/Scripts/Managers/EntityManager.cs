@@ -2,25 +2,26 @@ using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 
-// 전장(보드) 엔티티의 상태를 소유한다: 스폰 / 빈 슬롯 / 선택·타겟 / 정렬 / 사망 제거.
+// 전장(보드) 엔티티의 상태를 소유한다: 스폰 / 빈 슬롯 미리보기 / 선택·타겟 / 정렬 / 사망 제거·승격.
+// 진영마다 앞줄(공개, 전투 참여)과 뒷줄(대기, 공격·피격 불가)을 둔다. (행당 최대 3)
 // 전투 해석은 CombatSystem, 상대 턴 행동은 EnemyAI, 승패 판정은 GameManager가 담당한다.
 public class EntityManager : MonoBehaviour
 {
     public static EntityManager Inst { get; private set; }
 
-    private const int MaxEntityCount = 6;
+    private const int MaxRow = 3; // 한 행(앞줄/뒷줄)의 최대 슬롯 수
 
     [CenterHeader("< 프리팹 >")]
     [SerializeField] private GameObject _entityPrefab;
 
-    [CenterHeader("< 진영 엔티티 >")]
-    [SerializeField] private List<Entity> _myEntities;
-    [SerializeField] private List<Entity> _otherEntities;
+    [CenterHeader("< 진영 엔티티 (앞줄=공개 / 뒷줄=대기) >")]
+    [SerializeField] private List<Entity> _myFront;
+    [SerializeField] private List<Entity> _myBack;
+    [SerializeField] private List<Entity> _otherFront;
+    [SerializeField] private List<Entity> _otherBack;
 
-    [CenterHeader("< 보스 / 빈 슬롯 >")]
+    [CenterHeader("< 빈 슬롯(배치 미리보기) >")]
     [SerializeField] private Entity _myEmptyEntity;
-    [SerializeField] private Entity _myBossEntity;
-    [SerializeField] private Entity _otherBossEntity;
 
     [CenterHeader("< 타겟 표시 >")]
     [SerializeField] private GameObject _targetPicker;
@@ -28,19 +29,25 @@ public class EntityManager : MonoBehaviour
     private Entity _selectEntity;
     private Entity _targetPickEntity;
 
-    // 외부(CombatSystem/EnemyAI/GameManager)가 보드 상태를 질의하기 위한 읽기 전용 노출
-    public IReadOnlyList<Entity> MyEntities    => _myEntities;
-    public IReadOnlyList<Entity> OtherEntities => _otherEntities;
-    public Entity                MyBoss        => _myBossEntity;
-    public Entity                OtherBoss     => _otherBossEntity;
+    private Entity _moveEntity;     // 세팅 단계에서 집어든(이동 중) 카드
+    private bool   _moveFromFront;  // 집어들 당시의 행(앞줄 여부)
+    private int    _moveFromIndex;  // 집어들 당시의 행 내 인덱스
 
-    public bool IsFullMyEntities => _myEntities.Count >= MaxEntityCount && !ExistMyEmptyEntity;
+    // 외부(CombatSystem/EnemyAI)가 타겟·공격 후보로 쓰는 앞줄(공개) 엔티티
+    public IReadOnlyList<Entity> MyFront    => _myFront;
+    public IReadOnlyList<Entity> OtherFront => _otherFront;
 
-    private bool IsFullOtherEntities   => _otherEntities.Count >= MaxEntityCount;
+    // 승패 판정용 — 진영의 카드(앞줄+뒷줄)가 모두 제거되었는지
+    public bool IsMyAllDead    => _myFront.Count == 0 && _myBack.Count == 0;
+    public bool IsOtherAllDead => _otherFront.Count == 0 && _otherBack.Count == 0;
+
+    // 내가 배치한 실제 카드 수(빈 슬롯 제외) / 6장 모두 배치 완료 여부
+    public int  MyPlacedCount   => RealCount(_myFront) + RealCount(_myBack);
+    public bool IsMyPlaceDone    => RealCount(_myFront) >= MaxRow && RealCount(_myBack) >= MaxRow;
+    public bool IsOtherPlaceDone => _otherFront.Count >= MaxRow && _otherBack.Count >= MaxRow;
+
     private bool ExistTargetPickEntity => _targetPickEntity != null;
-    private bool ExistMyEmptyEntity    => _myEntities.Exists(x => x == _myEmptyEntity);
-    private int  MyEmptyEntityIndex    => _myEntities.FindIndex(x => x == _myEmptyEntity);
-    private bool CanMouseInput         => TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading;
+    private bool CanMouseInput         => TurnManager.Inst.IsBattlePhase && TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading;
 
 
     // 싱글톤 등록 (Unity 메시지)
@@ -49,10 +56,12 @@ public class EntityManager : MonoBehaviour
         Inst = this;
     }
 
-    // 턴 이벤트 구독 (Unity 메시지)
+    // 턴 이벤트 구독 + 빈 슬롯 미리보기 숨김 (Unity 메시지)
     private void Start()
     {
         TurnManager.OnTurnStarted += OnTurnStarted;
+
+        _myEmptyEntity.gameObject.SetActive(false); // 드래그 중에만 보이게 한다
     }
 
     // 이벤트 구독 해제 (Unity 메시지)
@@ -69,120 +78,168 @@ public class EntityManager : MonoBehaviour
 
     #region 스폰 / 슬롯 / 정렬
 
-    // 빈 슬롯(아군) 또는 빈자리(상대)에 엔티티를 생성한다. 가득 찼으면 false
-    public bool SpawnEntity(bool isMine, Item item, Vector3 spawnPos)
+    // 지정한 진영·행에 엔티티를 생성한다. 내 카드는 미리보기 빈 슬롯 자리에, 상대는 행 끝에 채운다
+    public bool SpawnEntity(bool isMine, Item item, bool isFrontRow, Vector3 spawnPos)
     {
+        var rowList = GetRow(isMine, isFrontRow);
+
         if (isMine)
         {
-            if (IsFullMyEntities || !ExistMyEmptyEntity)
+            if (!ExistEmptyIn(rowList) || RealCount(rowList) >= MaxRow)
             {
                 return false;
             }
         }
-        else
+        else if (rowList.Count >= MaxRow)
         {
-            if (IsFullOtherEntities)
-            {
-                return false;
-            }
+            return false;
         }
 
         var entityObject = Instantiate(_entityPrefab, spawnPos, Utils.QI);
         var entity       = entityObject.GetComponent<Entity>();
 
+        entity.isMine = isMine;
+        bool showFront = isMine || isFrontRow; // 내 카드는 항상 앞면, 상대는 앞줄만 앞면
+        entity.Setup(item, showFront, !isFrontRow);
+
         if (isMine)
         {
-            _myEntities[MyEmptyEntityIndex] = entity; // 빈 슬롯 자리를 실제 엔티티로 교체
+            rowList[rowList.IndexOf(_myEmptyEntity)] = entity; // 빈 슬롯 자리를 실제 엔티티로 교체
+            _myEmptyEntity.gameObject.SetActive(false);
         }
         else
         {
-            _otherEntities.Insert(Random.Range(0, _otherEntities.Count), entity); // 상대는 무작위 위치
+            rowList.Add(entity);
         }
 
-        entity.isMine = isMine;
-        entity.Setup(item);
-        EntityAlignment(isMine);
+        EntityAlignment(isMine, isFrontRow);
 
         return true;
     }
 
-    // 드래그한 카드의 x 위치에 임시 빈 슬롯을 끼워 넣고, 위치 순으로 정렬해 미리보기를 제공한다
-    public void InsertMyEmptyEntity(float xPos)
+    // 드래그한 카드의 위치(x, y)에 맞는 행을 골라 임시 빈 슬롯을 끼워 미리보기를 제공한다 (내 배치 전용)
+    public void InsertMyEmptyEntity(float xPos, float yPos)
     {
-        if (IsFullMyEntities)
+        bool isFront      = BoardLayout.IsMyFrontRow(yPos);
+        var  targetRow    = GetRow(true, isFront);
+        var  oppositeRow  = GetRow(true, !isFront);
+
+        // 반대 행에 빈 슬롯이 남아 있으면 회수하고 그 행을 재정렬한다
+        if (ExistEmptyIn(oppositeRow))
         {
+            oppositeRow.Remove(_myEmptyEntity);
+            EntityAlignment(true, !isFront);
+        }
+
+        // 대상 행이 가득 찼으면 미리보기를 띄우지 않는다
+        if (RealCount(targetRow) >= MaxRow)
+        {
+            if (ExistEmptyIn(targetRow))
+            {
+                targetRow.Remove(_myEmptyEntity);
+                EntityAlignment(true, isFront);
+            }
+
+            _myEmptyEntity.gameObject.SetActive(false);
+
             return;
         }
 
-        if (!ExistMyEmptyEntity)
+        if (!ExistEmptyIn(targetRow))
         {
-            _myEntities.Add(_myEmptyEntity);
+            targetRow.Add(_myEmptyEntity);
         }
 
-        Vector3 emptyEntityPos = _myEmptyEntity.transform.position;
-        emptyEntityPos.x = xPos;
-        _myEmptyEntity.transform.position = emptyEntityPos;
+        _myEmptyEntity.gameObject.SetActive(true);
 
-        // 빈 슬롯의 인덱스가 바뀌었을 때만 재정렬한다
-        int emptyEntityIndex = MyEmptyEntityIndex;
-        _myEntities.Sort((entity1, entity2) => entity1.transform.position.x.CompareTo(entity2.transform.position.x));
-        if (MyEmptyEntityIndex != emptyEntityIndex)
+        // x 위치로 슬롯 순서를 잡고, 순서가 바뀌면 재정렬한다
+        Vector3 emptyPos = _myEmptyEntity.transform.position;
+        emptyPos.x = xPos;
+        _myEmptyEntity.transform.position = emptyPos;
+
+        int beforeIndex = targetRow.IndexOf(_myEmptyEntity);
+        targetRow.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+        if (targetRow.IndexOf(_myEmptyEntity) != beforeIndex)
         {
-            EntityAlignment(true);
+            EntityAlignment(true, isFront);
         }
     }
 
     // 임시 빈 슬롯을 제거하고 재정렬한다 (배치 취소 시)
     public void RemoveMyEmptyEntity()
     {
-        if (!ExistMyEmptyEntity)
+        if (ExistEmptyIn(_myFront))
         {
-            return;
+            _myFront.Remove(_myEmptyEntity);
+            EntityAlignment(true, true);
         }
 
-        _myEntities.RemoveAt(MyEmptyEntityIndex);
-        EntityAlignment(true);
+        if (ExistEmptyIn(_myBack))
+        {
+            _myBack.Remove(_myEmptyEntity);
+            EntityAlignment(true, false);
+        }
+
+        _myEmptyEntity.gameObject.SetActive(false);
     }
 
-    // 죽은 엔티티(보스·빈칸 제외)를 흔들기→축소 연출 후 제거하고 진영을 재정렬한다 (CombatSystem이 호출)
+    // 죽은 앞줄 엔티티를 제거하고, 뒷줄 대기 카드를 왼쪽부터 앞줄로 승격시킨 뒤 흔들기→축소 연출로 정리한다
     public void RemoveDeadAndRealign(params Entity[] entities)
     {
         foreach (var entity in entities)
         {
-            if (!entity.isDie || entity.isBossOrEmpty)
+            if (!entity.isDie || entity.isEmpty)
             {
                 continue;
             }
 
-            if (entity.isMine)
+            bool isMine    = entity.isMine;
+            var  frontList = isMine ? _myFront : _otherFront;
+
+            frontList.Remove(entity);
+
+            bool promoted = PromoteFromBack(isMine); // 뒷줄 → 앞줄 승격(왼쪽부터)
+            EntityAlignment(isMine, true);
+            if (promoted)
             {
-                _myEntities.Remove(entity);
-            }
-            else
-            {
-                _otherEntities.Remove(entity);
+                EntityAlignment(isMine, false);
             }
 
             DOTween.Sequence()
                 .Append(entity.transform.DOShakePosition(1.3f))
                 .Append(entity.transform.DOScale(Vector3.zero, 0.3f)).SetEase(Ease.OutCirc)
-                .OnComplete(() =>
-                {
-                    EntityAlignment(entity.isMine); // 빈자리 메우며 재정렬
-                    Destroy(entity.gameObject);
-                });
+                .OnComplete(() => Destroy(entity.gameObject));
         }
     }
 
-    // 엔티티들을 BoardLayout이 계산한 슬롯 위치로 이동시키고 정렬 순서를 갱신한다
-    private void EntityAlignment(bool isMine)
+    // 해당 진영 뒷줄의 가장 왼쪽 카드를 앞줄 빈 자리로 승격한다 (성공 시 true)
+    private bool PromoteFromBack(bool isMine)
     {
-        var targetEntities = isMine ? _myEntities : _otherEntities;
+        var frontList = isMine ? _myFront : _otherFront;
+        var backList  = isMine ? _myBack  : _otherBack;
 
-        for (int i = 0; i < targetEntities.Count; i++)
+        if (frontList.Count >= MaxRow || backList.Count == 0)
         {
-            var targetEntity = targetEntities[i];
-            targetEntity.originPos = BoardLayout.GetSlotPosition(isMine, i, targetEntities.Count);
+            return false;
+        }
+
+        var promoted = backList[0]; // 왼쪽부터
+        backList.RemoveAt(0);
+        frontList.Add(promoted);
+        promoted.Promote(); // 공개 전환 + 대기시간 재설정
+
+        return true;
+    }
+
+    // 한 행의 엔티티들을 BoardLayout 슬롯 위치로 이동시키고 정렬 순서를 갱신한다
+    private void EntityAlignment(bool isMine, bool isFront)
+    {
+        var targetRow = GetRow(isMine, isFront);
+
+        for (int i = 0; i < targetRow.Count; i++)
+        {
+            var targetEntity = targetRow[i];
+            targetEntity.originPos = BoardLayout.GetSlotPosition(isMine, isFront, i, targetRow.Count);
             targetEntity.MoveTransform(targetEntity.originPos, true, 0.5f);
             targetEntity.GetComponent<Order>()?.SetOriginOrder(i);
         }
@@ -192,10 +249,20 @@ public class EntityManager : MonoBehaviour
 
     #region 입력 / 타겟 선택
 
-    // 내 엔티티 누름 — 공격자 선택 (Entity.OnMouseDown이 호출)
+    // 엔티티 누름 — 세팅 단계면 이동 시작, 전투 단계면 공격자 선택 (Entity.OnMouseDown이 호출)
     public void EntityMouseDown(Entity entity)
     {
-        if (!CanMouseInput)
+        if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
+        {
+            if (!TurnManager.Inst.isLoading)
+            {
+                BeginSetupMove(entity);
+            }
+
+            return;
+        }
+
+        if (!CanMouseInput || entity.isWaiting) // 전투: 앞줄만 공격자 선택
         {
             return;
         }
@@ -203,15 +270,21 @@ public class EntityManager : MonoBehaviour
         _selectEntity = entity;
     }
 
-    // 손을 뗌 — 선택·타겟이 모두 있고 공격 가능하면 공격 실행 (Entity.OnMouseUp이 호출)
+    // 손을 뗌 — 세팅 단계면 이동 확정, 전투 단계면 공격 실행 (Entity.OnMouseUp이 호출)
     public void EntityMouseUp()
     {
+        if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
+        {
+            EndSetupMove();
+
+            return;
+        }
+
         if (!CanMouseInput)
         {
             return;
         }
 
-        // selectEntity, targetPickEntity 둘 다 존재하고 공격 가능하면 공격한다
         if (_selectEntity && _targetPickEntity && _selectEntity.attackable)
         {
             CombatSystem.Inst.Attack(_selectEntity, _targetPickEntity);
@@ -221,20 +294,30 @@ public class EntityManager : MonoBehaviour
         _targetPickEntity = null;
     }
 
-    // 드래그 중 마우스 위치의 상대 엔티티를 타겟으로 지정 (Entity.OnMouseDrag이 호출)
+    // 드래그 — 세팅 단계면 집어든 카드를 마우스로 이동, 전투 단계면 상대 앞줄을 타겟 지정 (Entity.OnMouseDrag이 호출)
     public void EntityMouseDrag()
     {
+        if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
+        {
+            if (_moveEntity != null)
+            {
+                _moveEntity.MoveTransform(Utils.MousePos, false);
+            }
+
+            return;
+        }
+
         if (!CanMouseInput || _selectEntity == null)
         {
             return;
         }
 
-        // 마우스 위치의 상대 엔티티를 타겟으로 찾는다
+        // 마우스 위치의 상대 앞줄 엔티티만 타겟으로 찾는다 (뒷줄 대기·빈 슬롯 제외)
         bool existTarget = false;
         foreach (var hit in Physics2D.RaycastAll(Utils.MousePos, Vector3.forward))
         {
             Entity entity = hit.collider?.GetComponent<Entity>();
-            if (entity != null && !entity.isMine && _selectEntity.attackable)
+            if (entity != null && !entity.isMine && !entity.isWaiting && !entity.isEmpty && _selectEntity.attackable)
             {
                 _targetPickEntity = entity;
                 existTarget       = true;
@@ -246,6 +329,77 @@ public class EntityManager : MonoBehaviour
         {
             _targetPickEntity = null;
         }
+    }
+
+    // 세팅 단계 — 내 카드를 행에서 떼어내 이동을 시작한다
+    private void BeginSetupMove(Entity entity)
+    {
+        _moveEntity    = entity;
+        _moveFromFront = _myFront.Contains(entity);
+        _moveFromIndex = GetRow(true, _moveFromFront).IndexOf(entity);
+
+        GetRow(true, _moveFromFront).Remove(entity);
+        EntityAlignment(true, _moveFromFront);
+        entity.GetComponent<Order>()?.SetMostFrontOrder(true); // 드래그 동안 위로
+    }
+
+    // 세팅 단계 — 드롭한 행에 카드를 안착시킨다. 행이 가득 차 있으면 가장 가까운 카드와 자리를 맞바꾼다
+    private void EndSetupMove()
+    {
+        if (_moveEntity == null)
+        {
+            return;
+        }
+
+        bool tFront = BoardLayout.IsMyFrontRow(Utils.MousePos.y);
+        var  tRow   = GetRow(true, tFront);
+
+        if (RealCount(tRow) < MaxRow)
+        {
+            InsertEntitySorted(tRow, _moveEntity, tFront); // 빈 자리에 삽입(같은 행 재배치 포함)
+        }
+        else
+        {
+            SwapIntoFullRow(_moveEntity, tFront);          // 가득 찬 행이면 스왑
+        }
+
+        EntityAlignment(true, true);
+        EntityAlignment(true, false);
+        _moveEntity = null;
+    }
+
+    // 카드를 x 위치 순서에 맞게 행에 삽입하고 행 상태를 갱신한다
+    private void InsertEntitySorted(List<Entity> row, Entity entity, bool isFront)
+    {
+        row.Add(entity);
+        row.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+        entity.SetRowState(isFront);
+    }
+
+    // 가득 찬 대상 행에서 마우스와 가장 가까운 카드를 골라, 그 자리를 이동 카드와 맞바꾼다
+    private void SwapIntoFullRow(Entity entity, bool tFront)
+    {
+        var tRow = GetRow(true, tFront);
+
+        Entity nearest = tRow[0];
+        float  best    = Mathf.Abs(nearest.transform.position.x - Utils.MousePos.x);
+        foreach (var candidate in tRow)
+        {
+            float distance = Mathf.Abs(candidate.transform.position.x - Utils.MousePos.x);
+            if (distance < best)
+            {
+                best    = distance;
+                nearest = candidate;
+            }
+        }
+
+        int nearestIndex = tRow.IndexOf(nearest);
+        tRow[nearestIndex] = entity; // 대상 슬롯에 이동 카드
+        entity.SetRowState(tFront);
+
+        var origRow = GetRow(true, _moveFromFront);
+        origRow.Insert(Mathf.Clamp(_moveFromIndex, 0, origRow.Count), nearest); // 원래 자리에 교환 카드
+        nearest.SetRowState(_moveFromFront);
     }
 
     // 타겟 피커를 표시하고 타겟 위치로 따라붙인다
@@ -261,26 +415,57 @@ public class EntityManager : MonoBehaviour
 
     #endregion
 
-    #region 턴 / 전투
+    #region 턴
 
-    // 보스에게 직접 데미지 후 승패 확인 (치트용)
-    public void DamageBoss(bool isMine, int damage)
-    {
-        var targetBossEntity = isMine ? _myBossEntity : _otherBossEntity;
-        targetBossEntity.Damaged(damage);
-
-        GameManager.Inst.CheckBattleResult();
-    }
-
-    // 턴 시작 — 해당 진영 공격권 복구, 상대 턴이면 AI 가동 (OnTurnStarted 구독)
+    // 턴 시작 — 해당 진영 엔티티의 대기시간/공격권을 갱신하고, 상대 턴이면 AI를 가동한다 (OnTurnStarted 구독)
     private void OnTurnStarted(bool myTurn)
     {
-        CombatSystem.Inst.AttackableReset(myTurn);
+        RefreshTurnStart(myTurn);
 
         if (!myTurn)
         {
             EnemyAI.Inst.Play();
         }
+    }
+
+    // 이번 턴 진영의 앞줄·뒷줄 엔티티에 자기 턴 시작 처리를 순서대로 적용한다 (EnemyAI보다 먼저)
+    private void RefreshTurnStart(bool myTurn)
+    {
+        var frontList = myTurn ? _myFront : _otherFront;
+        var backList  = myTurn ? _myBack  : _otherBack;
+
+        foreach (var entity in frontList)
+        {
+            entity.OnMyTurnStart();
+        }
+
+        foreach (var entity in backList)
+        {
+            entity.OnMyTurnStart(); // 대기 카드는 내부에서 무시된다
+        }
+    }
+
+    #endregion
+
+    #region 헬퍼
+
+    // 진영·행에 해당하는 리스트를 반환한다
+    private List<Entity> GetRow(bool isMine, bool isFront)
+    {
+        return isMine ? (isFront ? _myFront : _myBack)
+                      : (isFront ? _otherFront : _otherBack);
+    }
+
+    // 리스트에 미리보기 빈 슬롯이 포함되어 있는지
+    private bool ExistEmptyIn(List<Entity> list)
+    {
+        return list.Contains(_myEmptyEntity);
+    }
+
+    // 빈 슬롯을 제외한 실제 엔티티 수
+    private int RealCount(List<Entity> list)
+    {
+        return list.Count - (ExistEmptyIn(list) ? 1 : 0);
     }
 
     #endregion
