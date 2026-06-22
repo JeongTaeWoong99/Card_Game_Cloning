@@ -98,6 +98,7 @@ crashlytics-build.properties
 .idea/
 
 # --- Unity AI Assistant 자동 생성물 ---
+/GeneratedAssets/
 /[Aa]ssets/AI Toolkit/
 /[Aa]ssets/AI Toolkit.meta
 /[Aa]ssets/AssistantCustomInstructions.txt
