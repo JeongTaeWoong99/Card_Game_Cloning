@@ -68,13 +68,26 @@ public class PlayerController : MonoBehaviour
     private void Start() { }
     private void Update() { }
 
-    // 7. Public Methods
-    public void InflictDamage(float damage) { }
+    // 7. 나머지 메서드는 사용 단계별 #region 으로 그룹화 (아래 규칙 참조)
+    #region 초기화
+    public void Setup() { }
+    #endregion
 
-    // 8. Private Methods
+    #region 게임 진행
+    public void InflictDamage(float damage) { }
     private void Die() { }
+    #endregion
 }
 ```
+
+### 메서드 그룹화 — 사용 단계별 #region
+
+필드 → 프로퍼티 → 이벤트 → **생명주기**까지는 상단에 그대로 두고(영역 없음),
+그 아래 나머지 메서드는 **사용 단계별 `#region`** 으로 묶는다. Rider 접기로 긴 클래스 탐색이 쉬워진다.
+
+- 표준 묶음: `초기화` / `게임 진행` / `종료 · 결과` / `보조`. 클래스 성격에 맞으면 `입력` / `손패 · 배치` 같은 **관심사 기준**도 가능.
+- region **내부 순서는 호출 흐름 우선**(public/private 엄격 분리보다 읽는 순서 우선).
+- **소형 클래스**(메서드 3~5개 이하)는 region 없이 주석만 — 오버엔지니어링 금지.
 
 ---
 
@@ -210,6 +223,25 @@ public bool ApplyDamage(float damage) { }
 | 코드 실행 이유, 알고리즘 설명 | `//` 주석 |
 | Public 메서드/클래스 API 문서 | XML `///` |
 
+### 메서드 1줄 요약 + 바인딩 표기 (이 프로젝트 기준)
+
+**모든 메서드 위에 1줄 요약 주석**을 단다(자명한 한 줄 getter 제외). 특히 **호출 경로가 코드만으론 안 보이는** 메서드는
+어디서 불리는지를 괄호로 명시한다 — 구독/버튼/엔진 메시지 구분이 핵심.
+
+| 종류 | 표기 예시 |
+|------|-----------|
+| Unity 메시지 | `// 카드 누름 — 드래그 시작 (Unity 마우스 메시지)` / `// 턴 이벤트 구독 (Unity 메시지)` |
+| 이벤트 구독 핸들러 | `// 내 턴 시작 시 배치 카운트 초기화 (OnTurnStarted 구독)` |
+| UI 버튼 OnClick | `// 게임 시작 (GameStartBtn OnClick에 할당)` |
+| 다른 클래스가 호출 | `// 공격 실행 (EntityManager·EnemyAI가 호출)` |
+
+라인 단위로도 의미가 갈리는 곳엔 인라인 주석을 붙인다(열 맞춰 정렬):
+```csharp
+_notificationPanel.ScaleZero();     // 알림 패널 숨김
+_resultPanel.ScaleZero();           // 결과 패널 숨김
+_titlePanel.Active(true);           // 타이틀 패널 켜기
+```
+
 ---
 
 ## 7. 피해야 할 코드 스멜
@@ -319,7 +351,7 @@ public static event Action<bool> OnTurnStarted;
 
 `[SerializeField]`(또는 직렬화되는 public) 필드가 3개 이상이면 역할별로 헤더를 붙여 가독성을 높인다.
 기본 `[Header]`는 좌측 정렬만 되어 구분이 약하므로, 이 프로젝트는 **가운데 정렬 커스텀 헤더 `[CenterHeader]`** 를 쓴다.
-(`Assets/Scripts/Common/CenterHeaderAttribute.cs` + `Assets/Scripts/Editor/CenterHeaderDrawer.cs`)
+(`Assets/Scripts/Common/Attribute/CenterHeaderAttribute.cs` + `Assets/Scripts/Editor/CenterHeaderDrawer.cs`)
 
 텍스트는 `< 참조 >` 처럼 양쪽을 꺾쇠로 감싸 구분을 더 또렷하게 한다.
 
@@ -330,3 +362,12 @@ public static event Action<bool> OnTurnStarted;
 [CenterHeader("< 상태 >")]
 [SerializeField] private ECardState _cardState;
 ```
+
+### 폴더 구성 — 역할별로 세분화
+
+스크립트가 늘어날 때 비슷한 것끼리 빨리 찾도록 역할별 폴더로 나눈다.
+
+- **정적 유틸/도구**(static, 순수 계산) → 최상위 `Util/` (예: `Util/Utils.cs`, `Util/Layout/`)
+- **기능 보조**는 `Common/<범주>/` 로 세분 (예: `Common/Camera/`, `Common/Sorting/`, `Common/Attribute/`)
+- 에디터 전용 스크립트는 반드시 `Editor/` 폴더 안에 둔다.
+- 도메인 스크립트는 기존대로 `Gameplay/` · `Managers/` · `UI/` · `SO/`.
