@@ -13,7 +13,6 @@ public class Entity : MonoBehaviour
     [SerializeField] private SpriteRenderer _entity;
     [SerializeField] private SpriteRenderer _character;
     [SerializeField] private TMP_Text       _nameTMP;
-    [SerializeField] private TMP_Text       _attackTMP;
     [SerializeField] private TMP_Text       _healthTMP;
     [SerializeField] private GameObject     _sleepParticle;
 
@@ -22,8 +21,7 @@ public class Entity : MonoBehaviour
     [SerializeField] private Sprite _cardBack;  // 뒷면(상대 대기 카드)
 
     [CenterHeader("< 스탯 >")]
-    public int attack;
-    public int health;
+    public int health; // 공격 데미지로도 쓰인다 (HP가 곧 공격력)
 
     [CenterHeader("< 상태 >")]
     public bool    isMine;
@@ -33,16 +31,34 @@ public class Entity : MonoBehaviour
     public bool    attackable;
     public Vector3 originPos;
 
-    private int _waitCount; // 공격 가능까지 남은 자기 턴 수 (속성별 대기시간)
+    private int   _maxHealth;          // 회복 상한 (버프는 이 값을 초과할 수 있다)
+    private int   _waitCount;          // 공격 가능까지 남은 자기 턴 수 (속성별 대기시간)
+    private Color _defaultHealthColor; // HP 텍스트 기본색 (버프 시 빨강으로 교체)
 
+    private static readonly Color BuffHealthColor = Color.red; // 버프(health > maxHealth) 상태 표시
+
+    // 카드 속성 — CombatSystem이 공격 방식을 분기하는 데 사용 (다른 클래스가 호출)
+    public ECardType CardType => _item.type;
+
+    // 회복 가능 여부 — 힐러 패시브/힐 스킬이 대상 선별에 사용 (다른 클래스가 호출)
+    public bool CanHeal => !isEmpty && !isDie && health < _maxHealth;
+    
+    // HP 텍스트 기본색 캐싱 (Unity 메시지)
+    private void Awake()
+    {
+        // 정렬용 빈 엔티티는 _healthTMP가 없으므로 패스
+        if (_healthTMP == null) return;
+
+        _defaultHealthColor = _healthTMP.color;
+    }
 
     // 스탯·뷰·대기시간을 초기화한다 (스폰 시 EntityManager.SpawnEntity가 호출)
     // showFront: 앞면(스탯 노출) 여부, waiting: 뒷줄 대기 여부
     public void Setup(Item item, bool showFront, bool waiting)
     {
         _item      = item;
-        attack     = item.attack;
         health     = item.health;
+        _maxHealth = item.health;
         isWaiting  = waiting;
         _waitCount = item.type.GetWaitTurn();
 
@@ -60,15 +76,20 @@ public class Entity : MonoBehaviour
         {
             _character.sprite = _item.sprite;
             _nameTMP.text     = _item.name;
-            _attackTMP.text   = attack.ToString();
-            _healthTMP.text   = health.ToString();
+            RefreshHealthText();
         }
         else
         {
             _nameTMP.text   = "";
-            _attackTMP.text = "";
             _healthTMP.text = "";
         }
+    }
+
+    // HP 텍스트를 갱신한다. 버프(health > maxHealth)면 빨강, 아니면 기본색 (HP 변동 공통 경로)
+    private void RefreshHealthText()
+    {
+        _healthTMP.text  = health.ToString();
+        _healthTMP.color = health > _maxHealth ? BuffHealthColor : _defaultHealthColor;
     }
 
     // 뒷줄 대기 → 앞줄 공개로 승격한다. 공개로 전환하고 대기시간을 다시 건다 (EntityManager가 호출)
@@ -95,7 +116,7 @@ public class Entity : MonoBehaviour
     public bool Damaged(int damage)
     {
         health -= damage;
-        _healthTMP.text = health.ToString();
+        RefreshHealthText();
 
         if (health <= 0)
         {
@@ -105,6 +126,20 @@ public class Entity : MonoBehaviour
         }
 
         return false;
+    }
+
+    // HP를 회복한다 — 최대치(_maxHealth)를 넘지 않는다 (힐러 패시브·치유 스킬이 호출)
+    public void Heal(int amount)
+    {
+        health = Mathf.Min(health + amount, _maxHealth);
+        RefreshHealthText();
+    }
+
+    // HP를 버프한다 — 최대치를 초과할 수 있다(= 공격력 증가, 빨간 텍스트) (버프 스킬이 호출)
+    public void BuffHp(int amount)
+    {
+        health += amount;
+        RefreshHealthText();
     }
 
     // 목표 위치로 이동 — 즉시 또는 DOTween 보간

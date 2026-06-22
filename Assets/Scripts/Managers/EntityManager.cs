@@ -9,7 +9,8 @@ public class EntityManager : MonoBehaviour
 {
     public static EntityManager Inst { get; private set; }
 
-    private const int MaxRow = 3; // 한 행(앞줄/뒷줄)의 최대 슬롯 수
+    private const int MaxRow          = 3; // 한 행(앞줄/뒷줄)의 최대 슬롯 수
+    private const int HealerHealAmount = 1; // 힐러 패시브 회복량
 
     [CenterHeader("< 프리팹 >")]
     [SerializeField] private GameObject _entityPrefab;
@@ -262,12 +263,45 @@ public class EntityManager : MonoBehaviour
             return;
         }
 
-        if (!CanMouseInput || entity.isWaiting) // 전투: 앞줄만 공격자 선택
+        if (!CanMouseInput)
+        {
+            return;
+        }
+
+        if (entity.isWaiting) // 전투: 앞줄만 공격자 선택
         {
             return;
         }
 
         _selectEntity = entity;
+    }
+
+    // 대상 O 스킬 드래그 중 — 마우스 위치의 내 앞줄(공개) 엔티티를 타겟 피커로 지정한다. 유효 타겟이 잡히면 true
+    // (CardManager가 매 프레임 호출)
+    public bool PickSkillTarget(Vector3 pos)
+    {
+        _targetPickEntity = null;
+
+        foreach (var hit in Physics2D.RaycastAll(pos, Vector3.forward))
+        {
+            Entity entity = hit.collider?.GetComponent<Entity>();
+            if (entity != null && entity.isMine && !entity.isWaiting && !entity.isEmpty)
+            {
+                _targetPickEntity = entity;
+                break;
+            }
+        }
+
+        return _targetPickEntity != null;
+    }
+
+    // 현재 지정된 스킬 타겟을 반환하고 피커를 해제한다 (CardManager가 발동/취소 시 호출)
+    public Entity ConsumeSkillTarget()
+    {
+        Entity target = _targetPickEntity;
+        _targetPickEntity = null;
+
+        return target;
     }
 
     // 손을 뗌 — 세팅 단계면 이동 확정, 전투 단계면 공격 실행 (Entity.OnMouseUp이 호출)
@@ -417,14 +451,37 @@ public class EntityManager : MonoBehaviour
 
     #region 턴
 
-    // 턴 시작 — 해당 진영 엔티티의 대기시간/공격권을 갱신하고, 상대 턴이면 AI를 가동한다 (OnTurnStarted 구독)
+    // 턴 시작 — 대기시간/공격권 갱신 → 힐러 패시브 → 상대 턴이면 AI 가동 (OnTurnStarted 구독)
     private void OnTurnStarted(bool myTurn)
     {
         RefreshTurnStart(myTurn);
+        ProcessHealers(myTurn);
 
         if (!myTurn)
         {
             EnemyAI.Inst.Play();
+        }
+    }
+
+    // 자기 턴 시작 시 — 전방 힐러마다 자신 제외 힐 가능한 전방 아군 중 무작위 1체를 회복한다
+    private void ProcessHealers(bool isMine)
+    {
+        var front = isMine ? _myFront : _otherFront;
+
+        foreach (Entity healer in front)
+        {
+            if (healer.isEmpty || healer.isWaiting || healer.CardType != ECardType.Healer)
+            {
+                continue;
+            }
+
+            var candidates = front.FindAll(target => target != healer && target.CanHeal);
+            if (candidates.Count == 0)
+            {
+                continue;
+            }
+
+            candidates[Random.Range(0, candidates.Count)].Heal(HealerHealAmount);
         }
     }
 
@@ -448,6 +505,49 @@ public class EntityManager : MonoBehaviour
     #endregion
 
     #region 헬퍼
+
+    // 진영의 앞줄(공개) 리스트를 반환한다 (SkillSystem이 전방 전체 효과에 호출)
+    public IReadOnlyList<Entity> GetFront(bool isMine)
+    {
+        return isMine ? _myFront : _otherFront;
+    }
+
+    // 해당 진영 앞줄에서 무작위 1체를 반환한다 (빈 슬롯·사망 제외, 없으면 null)
+    public Entity GetRandomFront(bool isMine)
+    {
+        var front = (isMine ? _myFront : _otherFront).FindAll(e => !e.isEmpty && !e.isDie);
+
+        return front.Count == 0 ? null : front[Random.Range(0, front.Count)];
+    }
+
+    // 시전자 기준 적 진영 앞줄에서 무작위 1체를 반환한다 (무작위 적 피해 스킬이 호출)
+    public Entity GetRandomEnemyFront(bool isMine)
+    {
+        return GetRandomFront(!isMine);
+    }
+
+    // 대상과 같은 행에서 좌/우 인접 1체를 무작위로 반환한다 (무쌍 추가 피해가 호출, 없으면 null)
+    public Entity GetRandomAdjacentFront(Entity target)
+    {
+        var row = target.isMine ? _myFront : _otherFront;
+        int index = row.IndexOf(target);
+        if (index < 0)
+        {
+            return null;
+        }
+
+        var neighbors = new List<Entity>();
+        if (index - 1 >= 0)
+        {
+            neighbors.Add(row[index - 1]);
+        }
+        if (index + 1 < row.Count)
+        {
+            neighbors.Add(row[index + 1]);
+        }
+
+        return neighbors.Count == 0 ? null : neighbors[Random.Range(0, neighbors.Count)];
+    }
 
     // 진영·행에 해당하는 리스트를 반환한다
     private List<Entity> GetRow(bool isMine, bool isFront)

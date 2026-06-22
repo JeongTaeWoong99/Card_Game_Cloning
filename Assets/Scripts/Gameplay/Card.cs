@@ -11,7 +11,6 @@ public class Card : MonoBehaviour
     [SerializeField] private TMP_Text       _typeTMP;
     [SerializeField] private TMP_Text       _abilityTMP;
     [SerializeField] private TMP_Text       _nameTMP;
-    [SerializeField] private TMP_Text       _attackTMP;
     [SerializeField] private TMP_Text       _healthTMP;
 
     [CenterHeader("< 스프라이트 >")]
@@ -33,11 +32,15 @@ public class Card : MonoBehaviour
 
         if (_isFront)
         {
+            // 능력은 아직 미구현이므로 비어 있으면 안내 문구로 대체한다
+            string ability = string.IsNullOrEmpty(item.ability)
+                ? "대기 상태에서 배치되는 순간 발동되는 효과.(추후 추가 예정)"
+                : item.ability;
+
             _character.sprite = item.sprite;
-            _typeTMP.text     = $"타입 : {item.type.GetDisplayName()}";
-            _abilityTMP.text  = $"능력 : {item.ability}"; // 능력 내용은 차후 입력
+            _typeTMP.text     = item.type.GetEffectText();
+            _abilityTMP.text  = $"능력 : {ability}";
             _nameTMP.text     = item.name;
-            _attackTMP.text   = item.attack.ToString();
             _healthTMP.text   = item.health.ToString();
         }
         else
@@ -46,7 +49,6 @@ public class Card : MonoBehaviour
             _typeTMP.text    = "";
             _abilityTMP.text = "";
             _nameTMP.text    = "";
-            _attackTMP.text  = "";
             _healthTMP.text  = "";
         }
 

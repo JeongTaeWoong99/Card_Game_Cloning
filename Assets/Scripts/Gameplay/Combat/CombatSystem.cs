@@ -1,15 +1,20 @@
+using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
 
-// 엔티티 간 공격 해석을 담당한다.
-// 이동 연출 → 양측 데미지 적용 → 데미지 팝업 → 사망 정리/재정렬(EntityManager) → 승패 판정(GameManager) 순.
-// 카드 종류별 효과는 추후 이 클래스에만 확장하면 되도록 전투 로직을 한곳에 모았다.
+// 엔티티 간 공격 해석을 담당한다. 공격 데미지 = 공격자의 "현재 HP".
+// 공격자 속성에 따라 분기한다: 근접(일반·힐러, 반격 O) / 무쌍(광역, 반격 X) / 원거리(화살, 반격 X).
+// 공통 후처리(이동 정렬 원복 → 사망 정리/재정렬 → 승패 판정)를 한곳에 모았다.
 public class CombatSystem : MonoBehaviour
 {
     public static CombatSystem Inst { get; private set; }
 
+    private const float MoveTime         = 0.4f; // 근접 공격자 이동(왕복) 한 구간 시간
+    private const float MusouSplashRatio = 0.5f; // 무쌍 인접 추가 피해 비율
+
     [CenterHeader("< 참조 >")]
     [SerializeField] private GameObject _damagePrefab;
+    [SerializeField] private GameObject _arrowPrefab;
 
     // 싱글톤 등록 (Unity 메시지)
     private void Awake()
@@ -17,36 +22,123 @@ public class CombatSystem : MonoBehaviour
         Inst = this;
     }
 
-    // attacker가 defender 위치로 이동했다가 돌아오며 서로 데미지를 주고받는다 (이동 중 order를 높임)
-    // (EntityManager.EntityMouseUp · EnemyAI가 호출)
+    #region 공격
+
+    // 공격 진입점 — 공격자 속성에 따라 근접/무쌍/원거리로 분기한다 (EntityManager.EntityMouseUp·EnemyAI가 호출)
     public void Attack(Entity attacker, Entity defender)
     {
         attacker.attackable = false;
+
+        switch (attacker.CardType)
+        {
+            case ECardType.Ranged:
+                RangedAttack(attacker, defender);
+                break;
+
+            case ECardType.Musou:
+                MusouAttack(attacker, defender);
+                break;
+
+            default: // Normal, Healer
+                MeleeAttack(attacker, defender);
+                break;
+        }
+    }
+
+    // 근접(일반·힐러) — 대상 위치로 이동 후 양측 현재 HP만큼 동시 피해(반격 O)
+    private void MeleeAttack(Entity attacker, Entity defender)
+    {
         attacker.GetComponent<Order>().SetMostFrontOrder(true);
 
         DOTween.Sequence()
-            .Append(attacker.transform.DOMove(defender.originPos, 0.4f)).SetEase(Ease.InSine)
+            .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
             .AppendCallback(() =>
             {
-                attacker.Damaged(defender.attack);
-                defender.Damaged(attacker.attack);
-                SpawnDamage(defender.attack, attacker.transform);
-                SpawnDamage(attacker.attack, defender.transform);
+                // 순서 의존을 없애기 위해 양측 현재 HP를 먼저 캡처한 뒤 동시 적용한다
+                int attackerHp = attacker.health;
+                int defenderHp = defender.health;
+
+                defender.Damaged(attackerHp);
+                attacker.Damaged(defenderHp);
+                SpawnDamage(attackerHp, defender.transform);
+                SpawnDamage(defenderHp, attacker.transform);
             })
-            .Append(attacker.transform.DOMove(attacker.originPos, 0.4f)).SetEase(Ease.OutSine)
+            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
             .OnComplete(() => AttackCallback(attacker, defender));
     }
 
-    // 공격 연출 종료 후 — order 원복 → 사망 정리/재정렬 → 승패 판정
-    private void AttackCallback(Entity attacker, Entity defender)
+    // 무쌍 — 이동 후 대상에 현재 HP 100%, 인접 적 1체(랜덤)에 50% 피해(반격 X)
+    private void MusouAttack(Entity attacker, Entity defender)
     {
-        attacker.GetComponent<Order>().SetMostFrontOrder(false);
+        attacker.GetComponent<Order>().SetMostFrontOrder(true);
 
-        EntityManager.Inst.RemoveDeadAndRealign(attacker, defender);
+        Entity splashTarget = EntityManager.Inst.GetRandomAdjacentFront(defender);
+
+        DOTween.Sequence()
+            .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
+            .AppendCallback(() =>
+            {
+                int damage = attacker.health;
+
+                defender.Damaged(damage);
+                SpawnDamage(damage, defender.transform);
+
+                if (splashTarget != null)
+                {
+                    int splashDamage = Mathf.Max(1, Mathf.RoundToInt(damage * MusouSplashRatio));
+                    splashTarget.Damaged(splashDamage);
+                    SpawnDamage(splashDamage, splashTarget.transform);
+                }
+            })
+            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
+            .OnComplete(() => AttackCallback(attacker, defender, splashTarget));
+    }
+
+    // 원거리 — 제자리에서 화살을 발사하고, 화살이 도착했을 때만 대상에 현재 HP 피해(반격 X)
+    private void RangedAttack(Entity attacker, Entity defender)
+    {
+        int damage = attacker.health;
+
+        var arrow = Instantiate(_arrowPrefab).GetComponent<Arrow>();
+        arrow.Fire(attacker.transform.position, defender.transform.position, () =>
+        {
+            defender.Damaged(damage);
+            SpawnDamage(damage, defender.transform);
+            AttackCallback(attacker, defender);
+        });
+    }
+
+    // 공격 연출 종료 후 — 끌어올린 order 원복 → 사망 정리/재정렬 → 승패 판정 (각 공격 메서드가 호출)
+    private void AttackCallback(params Entity[] entities)
+    {
+        var involved = new List<Entity>();
+
+        foreach (Entity entity in entities)
+        {
+            if (entity == null)
+            {
+                continue;
+            }
+
+            entity.GetComponent<Order>().SetMostFrontOrder(false);
+            involved.Add(entity);
+        }
+
+        EntityManager.Inst.RemoveDeadAndRealign(involved.ToArray());
         GameManager.Inst.CheckBattleResult();
     }
 
-    // 데미지가 0 이하면 팝업을 만들지 않는다 (원거리 반격 0 등)
+    #endregion
+
+    #region 데미지 팝업
+
+    // 외부(SkillSystem)에서도 데미지 팝업을 띄울 수 있게 공개한다 (무작위 적 피해 스킬 등)
+    public void ShowDamagePopup(int damage, Transform target)
+    {
+        SpawnDamage(damage, target);
+    }
+
+    // 데미지가 0 이하면 팝업을 만들지 않는다 (반격 없는 공격 등)
     private void SpawnDamage(int damage, Transform target)
     {
         if (damage <= 0)
@@ -58,4 +150,6 @@ public class CombatSystem : MonoBehaviour
         damageComponent.SetupTransform(target);
         damageComponent.Damaged(damage);
     }
+
+    #endregion
 }
