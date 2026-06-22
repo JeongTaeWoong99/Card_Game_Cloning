@@ -4,9 +4,9 @@ using UnityEngine;
 // 위치 상수는 가로형 기준이며, 세로형 레이아웃 재조정은 콘텐츠 단계에서 진행한다.
 public static class BoardLayout
 {
-    private const float MyRowY      = -4.35f; // 아군 행 y
-    private const float OtherRowY   = 4.15f;  // 상대 행 y
-    private const float SlotSpacing = 6.8f;   // 슬롯 간 가로 간격
+    private const float MyRowY      = -4.35f;  // 아군 행 y
+    private const float OtherRowY   =  4.15f;  // 상대 행 y
+    private const float SlotSpacing =  6.8f;   // 슬롯 간 가로 간격
 
     // count개를 가로로 가운데 정렬했을 때 index번째 슬롯의 월드 위치
     public static Vector3 GetSlotPosition(bool isMine, int index, int count)

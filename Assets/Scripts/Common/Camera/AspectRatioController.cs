@@ -13,16 +13,19 @@ public class AspectRatioController : MonoBehaviour
     private int    _lastScreenWidth;
     private int    _lastScreenHeight;
     
+    // 카메라 캐싱 (Unity 메시지)
     private void Awake()
     {
         _camera = GetComponent<Camera>();
     }
 
+    // 초기 레터박스 적용 (Unity 메시지)
     private void Start()
     {
         ApplyLetterbox();
     }
 
+    // 화면 크기 변경 시에만 레터박스 재계산 (Unity 메시지)
     private void Update()
     {
         // 화면 크기(회전·창 크기 변경 등)가 바뀐 경우에만 재계산한다

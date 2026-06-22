@@ -7,6 +7,7 @@ public class CameraEffect : MonoBehaviour
 {
     [SerializeField] private Volume _grayscaleVolume;
 
+    // 흑백·어둡게 효과를 켜고 끈다 (GameManager가 호출)
     public void SetGrayScale(bool isGrayscale)
     {
         if (_grayscaleVolume == null)
