@@ -34,12 +34,22 @@ public class Order : MonoBehaviour
 
         foreach (Renderer renderer in _backRenderers)
         {
+            if (renderer == null) // 인스펙터 미할당(빈 슬롯) 방어
+            {
+                continue;
+            }
+
             renderer.sortingLayerName = _sortingLayerName;
             renderer.sortingOrder     = sortingOrder;
         }
 
         foreach (Renderer renderer in _middleRenderers)
         {
+            if (renderer == null) // 인스펙터 미할당(빈 슬롯) 방어
+            {
+                continue;
+            }
+
             renderer.sortingLayerName = _sortingLayerName;
             renderer.sortingOrder     = sortingOrder + 1;
         }

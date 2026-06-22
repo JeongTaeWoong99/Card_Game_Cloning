@@ -18,7 +18,7 @@ public class TurnManager : MonoBehaviour
     public enum EGamePhase { Setup, Battle }
 
     private const int StartCardCount    = 6; // 시작 손패 수 (앞줄 3 + 뒷줄 3)
-    private const int FirstTurnSkillDraw = 3; // 첫 턴 스킬 드로우 시도 수
+    private const int FirstTurnSkillDraw = 4; // 첫 턴 스킬 드로우 시도 수
     private const int TurnSkillDraw      = 1; // 이후 매 턴 스킬 드로우 시도 수
 
     [CenterHeader("< Develop >")]
@@ -36,7 +36,9 @@ public class TurnManager : MonoBehaviour
     private readonly WaitForSeconds _turnDelay        = new WaitForSeconds(0.7f);
 
     private WaitForSeconds _currentAddCardDelay; // _fastMode에 따라 선택되는 현재 카드 분배 딜레이
-    private bool           _isFirstBattleTurn;   // 전투 첫 턴 여부 (스킬 3장 드로우)
+
+    private bool _myFirstBattleTurn    = true; // 내 첫 전투 턴 여부 (스킬 4장 드로우)
+    private bool _otherFirstBattleTurn = true; // 상대 첫 전투 턴 여부 (스킬 4장 드로우)
 
 
     // 싱글톤 등록 (Unity 메시지)
@@ -83,9 +85,8 @@ public class TurnManager : MonoBehaviour
             return;
         }
 
-        phase              = EGamePhase.Battle;
-        myTurn             = true; // 배치 완료 후 내가 선공
-        _isFirstBattleTurn = true;
+        phase  = EGamePhase.Battle;
+        myTurn = true; // 배치 완료 후 내가 선공
 
         StartCoroutine(StartTurnCo());
     }
@@ -111,10 +112,21 @@ public class TurnManager : MonoBehaviour
 
         yield return _turnDelay;
 
-        // 전장 배치 이후 드로우는 스킬 카드만 (미제작이라 현재는 디버그만 출력)
-        int drawCount = _isFirstBattleTurn ? FirstTurnSkillDraw : TurnSkillDraw;
-        CardManager.Inst.DrawSkillCards(myTurn, drawCount);
-        _isFirstBattleTurn = false;
+        // 턴 시작 진영 마나 +1 회복
+        ManaManager.Inst.GainMana(myTurn);
+
+        // 전장 배치 이후 드로우는 스킬 카드만. 각 진영 첫 전투 턴은 4장, 이후 1장
+        bool isFirstTurn = myTurn ? _myFirstBattleTurn : _otherFirstBattleTurn;
+        CardManager.Inst.DrawSkillCards(myTurn, isFirstTurn ? FirstTurnSkillDraw : TurnSkillDraw);
+
+        if (myTurn)
+        {
+            _myFirstBattleTurn = false;
+        }
+        else
+        {
+            _otherFirstBattleTurn = false;
+        }
 
         yield return _turnDelay;
 

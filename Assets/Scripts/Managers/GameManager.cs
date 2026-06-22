@@ -136,6 +136,12 @@ public class GameManager : MonoBehaviour
         {
             TurnManager.Inst.EndTurn();
         }
+
+        // 4. 내 마나 최대치(10) 충전
+        if (CheatKeyDown(KeyCode.Alpha4, KeyCode.Keypad4))
+        {
+            ManaManager.Inst.FillMana(true);
+        }
     }
 
     // 해당 진영 앞줄의 첫 카드를 즉사시키고 제거·승격·승패 판정을 진행한다 (치트용)

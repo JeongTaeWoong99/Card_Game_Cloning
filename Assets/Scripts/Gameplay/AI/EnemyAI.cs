@@ -9,7 +9,8 @@ public class EnemyAI : MonoBehaviour
 {
     public static EnemyAI Inst { get; private set; }
 
-    private const int RowCount = 3; // 한 행에 놓을 카드 수
+    private const int   RowCount        = 3;    // 한 행에 놓을 카드 수
+    private const float SkillCastChance = 0.6f; // 보유 스킬을 한 번 더 시전할 확률
 
     private readonly WaitForSeconds _putDelay    = new WaitForSeconds(1f);
     private readonly WaitForSeconds _attackDelay = new WaitForSeconds(2f);
@@ -59,6 +60,15 @@ public class EnemyAI : MonoBehaviour
     {
         yield return _putDelay;
 
+        // 마나가 되면 일정 확률로 보유 스킬을 시전한다 (간단 AI)
+        yield return UseSkillsCo();
+
+        // 스킬(무작위 피해)로 게임이 끝났으면 즉시 중단한다
+        if (TurnManager.Inst.isLoading)
+        {
+            yield break;
+        }
+
         // 공격 가능한 상대 앞줄 엔티티만 모아 순서를 섞는다
         var attackers = new List<Entity>(EntityManager.Inst.OtherFront).FindAll(x => x.attackable);
         Utils.Shuffle(attackers);
@@ -91,6 +101,25 @@ public class EnemyAI : MonoBehaviour
         }
 
         TurnManager.Inst.EndTurn();
+    }
+
+    // 마나가 되는 동안 확률적으로 보유 스킬을 시전한다 (게임 종료 시 즉시 중단)
+    private IEnumerator UseSkillsCo()
+    {
+        while (Random.value < SkillCastChance)
+        {
+            if (!CardManager.Inst.TryCastOtherSkill())
+            {
+                break;
+            }
+
+            yield return _attackDelay;
+
+            if (TurnManager.Inst.isLoading)
+            {
+                yield break;
+            }
+        }
     }
 
     #endregion
