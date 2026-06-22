@@ -13,8 +13,7 @@ public class Order : MonoBehaviour
     [SerializeField] private string _sortingLayerName;
 
     private int _originOrder;
-
-
+    
     // 기준 정렬 순서를 저장하고 즉시 적용한다
     public void SetOriginOrder(int originOrder)
     {
@@ -36,13 +35,13 @@ public class Order : MonoBehaviour
         foreach (Renderer renderer in _backRenderers)
         {
             renderer.sortingLayerName = _sortingLayerName;
-            renderer.sortingOrder = sortingOrder;
+            renderer.sortingOrder     = sortingOrder;
         }
 
         foreach (Renderer renderer in _middleRenderers)
         {
             renderer.sortingLayerName = _sortingLayerName;
-            renderer.sortingOrder = sortingOrder + 1;
+            renderer.sortingOrder     = sortingOrder + 1;
         }
     }
 }
