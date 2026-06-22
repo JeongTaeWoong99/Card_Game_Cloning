@@ -14,6 +14,7 @@ public class Deck
         Refill();
     }
 
+    // 버퍼에서 카드 한 장을 꺼낸다 (비면 자동으로 다시 채움)
     public Item Pop()
     {
         if (_buffer.Count == 0)

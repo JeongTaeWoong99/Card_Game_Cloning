@@ -23,7 +23,7 @@ public class Card : MonoBehaviour
     private bool _isFront;
 
 
-    // isFront면 카드 정보를 노출하고, 아니면 뒷면(대기 카드)으로 가린다
+    // 카드 데이터 세팅 — isFront면 정보 노출, 아니면 뒷면(대기 카드)으로 가린다 (CardManager.AddCard가 호출)
     public void Setup(Item item, bool isFront)
     {
         this.item = item;
@@ -48,6 +48,7 @@ public class Card : MonoBehaviour
         GetComponent<PolygonCollider2D>().enabled = isFront;
     }
 
+    // PRS(위치/회전/스케일)로 이동 — 즉시 또는 DOTween 보간
     public void MoveTransform(PRS prs, bool useDotween, float dotweenTime = 0f)
     {
         if (useDotween)
@@ -64,6 +65,7 @@ public class Card : MonoBehaviour
         }
     }
 
+    // 마우스 올림 — 확대 (앞면만, Unity 마우스 메시지)
     private void OnMouseOver()
     {
         if (_isFront)
@@ -72,6 +74,7 @@ public class Card : MonoBehaviour
         }
     }
 
+    // 마우스 벗어남 — 원위치 (앞면만, Unity 마우스 메시지)
     private void OnMouseExit()
     {
         if (_isFront)
@@ -80,6 +83,7 @@ public class Card : MonoBehaviour
         }
     }
 
+    // 마우스 누름 — 드래그 시작 (앞면만, Unity 마우스 메시지)
     private void OnMouseDown()
     {
         if (_isFront)
@@ -88,6 +92,7 @@ public class Card : MonoBehaviour
         }
     }
 
+    // 마우스 놓음 — 배치/취소 (앞면만, Unity 마우스 메시지)
     private void OnMouseUp()
     {
         if (_isFront)

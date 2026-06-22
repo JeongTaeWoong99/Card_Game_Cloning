@@ -8,8 +8,10 @@ public class NotificationPanel : MonoBehaviour
     [CenterHeader("< 참조 >")]
     [SerializeField] private TMP_Text _notificationTMP;
     
+    // 시작 시 숨김 (Unity 메시지)
     private void Start() => ScaleZero();
 
+    // 메시지 표시 후 잠깐 머물렀다 사라지는 연출 (GameManager.Notification이 호출)
     public void Show(string message)
     {
         _notificationTMP.text = message;
@@ -19,9 +21,11 @@ public class NotificationPanel : MonoBehaviour
             .Append(transform.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InOutQuad));
     }
 
+    // 즉시 펼침 (인스펙터 디버그용)
     [ContextMenu("ScaleOne")]
     private void ScaleOne() => transform.localScale = Vector3.one;
 
+    // 즉시 숨김 (초기화 / 디버그용)
     [ContextMenu("ScaleZero")]
     public void ScaleZero() => transform.localScale = Vector3.zero;
 }

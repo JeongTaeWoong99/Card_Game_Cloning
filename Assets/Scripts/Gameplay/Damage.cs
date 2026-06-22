@@ -12,11 +12,13 @@ public class Damage : MonoBehaviour
 
     private const int DamageOrder = 1000;
     
+    // 따라다닐 대상을 지정한다 (CombatSystem.SpawnDamage가 호출)
     public void SetupTransform(Transform target)
     {
         _target = target;
     }
 
+    // 대상 위치 추적 (Unity 메시지)
     private void Update()
     {
         // 데미지 텍스트가 대상 위치를 따라다니도록 매 프레임 위치를 동기화한다
@@ -26,6 +28,7 @@ public class Damage : MonoBehaviour
         }
     }
 
+    // -N 텍스트 표시 + 커졌다 사라지는 연출 후 자기 파괴 (0 이하면 무시)
     public void Damaged(int damage)
     {
         if (damage <= 0)

@@ -23,6 +23,7 @@ public class GameManager : MonoBehaviour
     private readonly WaitForSeconds _resultCheckDelay = new WaitForSeconds(2f);
 
 
+    // 싱글톤 등록 + 프레임 고정 (Unity 메시지)
     private void Awake()
     {
         Inst = this;
@@ -32,11 +33,13 @@ public class GameManager : MonoBehaviour
         Application.targetFrameRate = 60;
     }
 
+    // 시작 UI 세팅 (Unity 메시지)
     private void Start()
     {
         UISetup();
     }
 
+    // 에디터에서만 치트 입력 처리 (Unity 메시지)
     private void Update()
     {
 #if UNITY_EDITOR
@@ -44,26 +47,65 @@ public class GameManager : MonoBehaviour
 #endif
     }
 
+    #region 초기화
+
+    // 게임 시작 — 턴 매니저의 시작 코루틴 가동 (TitlePanel.StartGameClick이 호출)
     public void StartGame()
     {
         StartCoroutine(TurnManager.Inst.StartGameCo());
     }
 
+    // 시작 UI 초기 세팅
+    private void UISetup()
+    {
+        _notificationPanel.ScaleZero();     // 알림 패널 숨김
+        _resultPanel.ScaleZero();           // 결과 패널 숨김
+        _titlePanel.Active(true);           // 타이틀 패널 켜기
+        _cameraEffect.SetGrayScale(false);  // 흑백 효과 끄기
+    }
+
+    #endregion
+
+    #region 게임 진행
+
+    // 화면 중앙에 안내 메시지를 띄운다
     public void Notification(string message)
     {
         _notificationPanel.Show(message);
     }
 
-    // 전투 결과를 확인할 시점(공격·보스 피격 후)에 호출한다. 연출 여유를 두고 판정한다
+    // 전투·보스 피격 후 승패 확인을 요청한다 (CombatSystem·치트가 호출)
     public void CheckBattleResult()
     {
         StartCoroutine(CheckBattleResultCo());
     }
 
+    // 연출 여유를 둔 뒤 보스 생존 여부로 승/패를 판정한다
+    private IEnumerator CheckBattleResultCo()
+    {
+        yield return _resultCheckDelay;
+
+        if (EntityManager.Inst.MyBoss.isDie)    // 내 보스 사망 → 패배
+        {
+            StartCoroutine(GameOver(false));
+        }
+
+        if (EntityManager.Inst.OtherBoss.isDie) // 상대 보스 사망 → 승리
+        {
+            StartCoroutine(GameOver(true));
+        }
+    }
+
+    #endregion
+
+    #region 종료 / 결과
+
+    // 입력을 봉인하고 결과 패널 + 흑백 연출을 띄운다
     public IEnumerator GameOver(bool isMyWin)
     {
         TurnManager.Inst.isLoading = true;
         _endTurnBtn.SetActive(false);
+        
         yield return _gameOverDelay;
 
         TurnManager.Inst.isLoading = true;
@@ -71,56 +113,44 @@ public class GameManager : MonoBehaviour
         _cameraEffect.SetGrayScale(true);
     }
 
-    private IEnumerator CheckBattleResultCo()
-    {
-        yield return _resultCheckDelay;
+    #endregion
 
-        if (EntityManager.Inst.MyBoss.isDie)
-        {
-            StartCoroutine(GameOver(false));
-        }
+    #region 개발 / 치트
 
-        if (EntityManager.Inst.OtherBoss.isDie)
-        {
-            StartCoroutine(GameOver(true));
-        }
-    }
-
-    private void UISetup()
-    {
-        _notificationPanel.ScaleZero();
-        _resultPanel.ScaleZero();
-        _titlePanel.Active(true);
-        _cameraEffect.SetGrayScale(false);
-    }
-
+    // 에디터 개발 편의 치트키
     private void InputCheatKey()
     {
+        // 1. 내 카드 추가
         if (CheatKeyDown(KeyCode.Alpha1, KeyCode.Keypad1))
         {
             TurnManager.OnAddCard?.Invoke(true);
         }
 
+        // 2. 상대 카드 추가
         if (CheatKeyDown(KeyCode.Alpha2, KeyCode.Keypad2))
         {
             TurnManager.OnAddCard?.Invoke(false);
         }
 
+        // 3. 턴 종료
         if (CheatKeyDown(KeyCode.Alpha3, KeyCode.Keypad3))
         {
             TurnManager.Inst.EndTurn();
         }
 
+        // 4. 상대 카드 놓기
         if (CheatKeyDown(KeyCode.Alpha4, KeyCode.Keypad4))
         {
             CardManager.Inst.TryPutCard(false);
         }
 
+        // 5. 내 보스 데미지 -19
         if (CheatKeyDown(KeyCode.Alpha5, KeyCode.Keypad5))
         {
             EntityManager.Inst.DamageBoss(true, 19);
         }
 
+        // 6. 상대 보스 데미지 -19
         if (CheatKeyDown(KeyCode.Alpha6, KeyCode.Keypad6))
         {
             EntityManager.Inst.DamageBoss(false, 19);
@@ -132,4 +162,6 @@ public class GameManager : MonoBehaviour
     {
         return Input.GetKeyDown(alpha) || Input.GetKeyDown(keypad);
     }
+
+    #endregion
 }

@@ -33,11 +33,15 @@ public class TurnManager : MonoBehaviour
     private WaitForSeconds _currentAddCardDelay; // _fastMode에 따라 선택되는 현재 카드 분배 딜레이
 
 
+    // 싱글톤 등록 (Unity 메시지)
     private void Awake()
     {
         Inst = this;
     }
 
+    #region 초기화
+
+    // 게임 시작 코루틴 — 선공 결정 후 시작 카드를 상대→나 순으로 번갈아 분배 (GameManager.StartGame이 호출)
     public IEnumerator StartGameCo()
     {
         GameSetup();
@@ -47,23 +51,17 @@ public class TurnManager : MonoBehaviour
         {
             yield return _currentAddCardDelay;
 
-            OnAddCard?.Invoke(false);
+            OnAddCard?.Invoke(false); // 상대 카드 한 장
 
             yield return _currentAddCardDelay;
 
-            OnAddCard?.Invoke(true);
+            OnAddCard?.Invoke(true);  // 내 카드 한 장
         }
 
         StartCoroutine(StartTurnCo());
     }
 
-    public void EndTurn()
-    {
-        myTurn = !myTurn;
-
-        StartCoroutine(StartTurnCo());
-    }
-
+    // fastMode 딜레이 선택 + 선공(myTurn) 결정
     private void GameSetup()
     {
         _currentAddCardDelay = _fastMode ? _fastAddCardDelay : _addCardDelay;
@@ -72,10 +70,23 @@ public class TurnManager : MonoBehaviour
         {
             ETurnMode.My    => true,
             ETurnMode.Other => false,
-            _               => Random.Range(0, 2) == 0,
+            _               => Random.Range(0, 2) == 0, // Random 모드는 동전 던지기
         };
     }
 
+    #endregion
+
+    #region 게임 진행
+
+    // 턴 종료 — 턴을 넘기고 다음 턴 시작 (EndTurnBtn 버튼·EnemyAI·치트가 호출)
+    public void EndTurn()
+    {
+        myTurn = !myTurn;
+
+        StartCoroutine(StartTurnCo());
+    }
+
+    // 턴 시작 — 알림 → 카드 1장 분배 → 입력 잠금 해제 → OnTurnStarted 발행
     private IEnumerator StartTurnCo()
     {
         isLoading = true;
@@ -84,12 +95,14 @@ public class TurnManager : MonoBehaviour
 
         yield return _turnDelay;
 
-        OnAddCard?.Invoke(myTurn);
+        OnAddCard?.Invoke(myTurn); // 턴 시작 시 카드 보충
 
         yield return _turnDelay;
 
         isLoading = false;
 
-        OnTurnStarted?.Invoke(myTurn);
+        OnTurnStarted?.Invoke(myTurn); // 구독자들(매니저·엔티티·버튼)에게 턴 시작 알림
     }
+
+    #endregion
 }

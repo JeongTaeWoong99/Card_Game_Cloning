@@ -43,25 +43,31 @@ public class EntityManager : MonoBehaviour
     private bool CanMouseInput         => TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading;
 
 
+    // 싱글톤 등록 (Unity 메시지)
     private void Awake()
     {
         Inst = this;
     }
 
+    // 턴 이벤트 구독 (Unity 메시지)
     private void Start()
     {
         TurnManager.OnTurnStarted += OnTurnStarted;
     }
 
+    // 이벤트 구독 해제 (Unity 메시지)
     private void OnDestroy()
     {
         TurnManager.OnTurnStarted -= OnTurnStarted;
     }
 
+    // 타겟 피커 표시를 매 프레임 갱신 (Unity 메시지)
     private void Update()
     {
         ShowTargetPicker(ExistTargetPickEntity);
     }
+
+    #region 스폰 / 슬롯 / 정렬
 
     // 빈 슬롯(아군) 또는 빈자리(상대)에 엔티티를 생성한다. 가득 찼으면 false
     public bool SpawnEntity(bool isMine, Item item, Vector3 spawnPos)
@@ -86,11 +92,11 @@ public class EntityManager : MonoBehaviour
 
         if (isMine)
         {
-            _myEntities[MyEmptyEntityIndex] = entity;
+            _myEntities[MyEmptyEntityIndex] = entity; // 빈 슬롯 자리를 실제 엔티티로 교체
         }
         else
         {
-            _otherEntities.Insert(Random.Range(0, _otherEntities.Count), entity);
+            _otherEntities.Insert(Random.Range(0, _otherEntities.Count), entity); // 상대는 무작위 위치
         }
 
         entity.isMine = isMine;
@@ -126,6 +132,7 @@ public class EntityManager : MonoBehaviour
         }
     }
 
+    // 임시 빈 슬롯을 제거하고 재정렬한다 (배치 취소 시)
     public void RemoveMyEmptyEntity()
     {
         if (!ExistMyEmptyEntity)
@@ -137,6 +144,55 @@ public class EntityManager : MonoBehaviour
         EntityAlignment(true);
     }
 
+    // 죽은 엔티티(보스·빈칸 제외)를 흔들기→축소 연출 후 제거하고 진영을 재정렬한다 (CombatSystem이 호출)
+    public void RemoveDeadAndRealign(params Entity[] entities)
+    {
+        foreach (var entity in entities)
+        {
+            if (!entity.isDie || entity.isBossOrEmpty)
+            {
+                continue;
+            }
+
+            if (entity.isMine)
+            {
+                _myEntities.Remove(entity);
+            }
+            else
+            {
+                _otherEntities.Remove(entity);
+            }
+
+            DOTween.Sequence()
+                .Append(entity.transform.DOShakePosition(1.3f))
+                .Append(entity.transform.DOScale(Vector3.zero, 0.3f)).SetEase(Ease.OutCirc)
+                .OnComplete(() =>
+                {
+                    EntityAlignment(entity.isMine); // 빈자리 메우며 재정렬
+                    Destroy(entity.gameObject);
+                });
+        }
+    }
+
+    // 엔티티들을 BoardLayout이 계산한 슬롯 위치로 이동시키고 정렬 순서를 갱신한다
+    private void EntityAlignment(bool isMine)
+    {
+        var targetEntities = isMine ? _myEntities : _otherEntities;
+
+        for (int i = 0; i < targetEntities.Count; i++)
+        {
+            var targetEntity = targetEntities[i];
+            targetEntity.originPos = BoardLayout.GetSlotPosition(isMine, i, targetEntities.Count);
+            targetEntity.MoveTransform(targetEntity.originPos, true, 0.5f);
+            targetEntity.GetComponent<Order>()?.SetOriginOrder(i);
+        }
+    }
+
+    #endregion
+
+    #region 입력 / 타겟 선택
+
+    // 내 엔티티 누름 — 공격자 선택 (Entity.OnMouseDown이 호출)
     public void EntityMouseDown(Entity entity)
     {
         if (!CanMouseInput)
@@ -147,6 +203,7 @@ public class EntityManager : MonoBehaviour
         _selectEntity = entity;
     }
 
+    // 손을 뗌 — 선택·타겟이 모두 있고 공격 가능하면 공격 실행 (Entity.OnMouseUp이 호출)
     public void EntityMouseUp()
     {
         if (!CanMouseInput)
@@ -164,6 +221,7 @@ public class EntityManager : MonoBehaviour
         _targetPickEntity = null;
     }
 
+    // 드래그 중 마우스 위치의 상대 엔티티를 타겟으로 지정 (Entity.OnMouseDrag이 호출)
     public void EntityMouseDrag()
     {
         if (!CanMouseInput || _selectEntity == null)
@@ -190,7 +248,22 @@ public class EntityManager : MonoBehaviour
         }
     }
 
-    // 보스에게 직접 데미지 (치트용)
+    // 타겟 피커를 표시하고 타겟 위치로 따라붙인다
+    private void ShowTargetPicker(bool isShow)
+    {
+        _targetPicker.SetActive(isShow);
+
+        if (ExistTargetPickEntity)
+        {
+            _targetPicker.transform.position = _targetPickEntity.transform.position;
+        }
+    }
+
+    #endregion
+
+    #region 턴 / 전투
+
+    // 보스에게 직접 데미지 후 승패 확인 (치트용)
     public void DamageBoss(bool isMine, int damage)
     {
         var targetBossEntity = isMine ? _myBossEntity : _otherBossEntity;
@@ -199,36 +272,7 @@ public class EntityManager : MonoBehaviour
         GameManager.Inst.CheckBattleResult();
     }
 
-    // 죽은 엔티티(보스·빈칸 제외)를 흔들기→축소 연출 후 제거하고 진영을 재정렬한다
-    public void RemoveDeadAndRealign(params Entity[] entities)
-    {
-        foreach (var entity in entities)
-        {
-            if (!entity.isDie || entity.isBossOrEmpty)
-            {
-                continue;
-            }
-
-            if (entity.isMine)
-            {
-                _myEntities.Remove(entity);
-            }
-            else
-            {
-                _otherEntities.Remove(entity);
-            }
-
-            DOTween.Sequence()
-                .Append(entity.transform.DOShakePosition(1.3f))
-                .Append(entity.transform.DOScale(Vector3.zero, 0.3f)).SetEase(Ease.OutCirc)
-                .OnComplete(() =>
-                {
-                    EntityAlignment(entity.isMine);
-                    Destroy(entity.gameObject);
-                });
-        }
-    }
-
+    // 턴 시작 — 해당 진영 공격권 복구, 상대 턴이면 AI 가동 (OnTurnStarted 구독)
     private void OnTurnStarted(bool myTurn)
     {
         CombatSystem.Inst.AttackableReset(myTurn);
@@ -239,27 +283,5 @@ public class EntityManager : MonoBehaviour
         }
     }
 
-    // 엔티티들을 BoardLayout이 계산한 슬롯 위치로 이동시키고 정렬 순서를 갱신한다
-    private void EntityAlignment(bool isMine)
-    {
-        var targetEntities = isMine ? _myEntities : _otherEntities;
-
-        for (int i = 0; i < targetEntities.Count; i++)
-        {
-            var targetEntity = targetEntities[i];
-            targetEntity.originPos = BoardLayout.GetSlotPosition(isMine, i, targetEntities.Count);
-            targetEntity.MoveTransform(targetEntity.originPos, true, 0.5f);
-            targetEntity.GetComponent<Order>()?.SetOriginOrder(i);
-        }
-    }
-
-    private void ShowTargetPicker(bool isShow)
-    {
-        _targetPicker.SetActive(isShow);
-
-        if (ExistTargetPickEntity)
-        {
-            _targetPicker.transform.position = _targetPickEntity.transform.position;
-        }
-    }
+    #endregion
 }

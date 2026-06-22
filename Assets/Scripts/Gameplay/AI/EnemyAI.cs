@@ -11,16 +11,19 @@ public class EnemyAI : MonoBehaviour
     private readonly WaitForSeconds _putDelay    = new WaitForSeconds(1f);
     private readonly WaitForSeconds _attackDelay = new WaitForSeconds(2f);
 
+    // 싱글톤 등록 (Unity 메시지)
     private void Awake()
     {
         Inst = this;
     }
 
+    // 상대 턴 행동 시작 (상대 턴에 EntityManager.OnTurnStarted가 호출)
     public void Play()
     {
         StartCoroutine(PlayCo());
     }
 
+    // 상대 턴 본체 — 카드 한 장 배치 → 공격 가능 엔티티로 무작위·시간차 공격 → 턴 종료
     private IEnumerator PlayCo()
     {
         CardManager.Inst.TryPutCard(false);

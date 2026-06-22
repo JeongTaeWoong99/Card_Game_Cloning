@@ -11,12 +11,13 @@ public class CombatSystem : MonoBehaviour
     [CenterHeader("< 참조 >")]
     [SerializeField] private GameObject _damagePrefab;
 
+    // 싱글톤 등록 (Unity 메시지)
     private void Awake()
     {
         Inst = this;
     }
 
-    // 턴 시작 시 해당 진영 엔티티들의 공격 가능 상태를 복구한다
+    // 턴 시작 시 해당 진영 엔티티들의 공격 가능 상태를 복구한다 (EntityManager.OnTurnStarted가 호출)
     public void AttackableReset(bool isMine)
     {
         var targetEntities = isMine ? EntityManager.Inst.MyEntities : EntityManager.Inst.OtherEntities;
@@ -28,6 +29,7 @@ public class CombatSystem : MonoBehaviour
     }
 
     // attacker가 defender 위치로 이동했다가 돌아오며 서로 데미지를 주고받는다 (이동 중 order를 높임)
+    // (EntityManager.EntityMouseUp · EnemyAI가 호출)
     public void Attack(Entity attacker, Entity defender)
     {
         attacker.attackable = false;
@@ -46,6 +48,7 @@ public class CombatSystem : MonoBehaviour
             .OnComplete(() => AttackCallback(attacker, defender));
     }
 
+    // 공격 연출 종료 후 — order 원복 → 사망 정리/재정렬 → 승패 판정
     private void AttackCallback(Entity attacker, Entity defender)
     {
         attacker.GetComponent<Order>().SetMostFrontOrder(false);
