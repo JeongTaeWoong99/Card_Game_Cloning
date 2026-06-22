@@ -14,51 +14,61 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   items:
   - name: "\uB8E8\uB124\uCF54"
+    type: 0
     attack: 2
     health: 5
     sprite: {fileID: 21300000, guid: 4b16b3eaf25218843aaa18a01bf38128, type: 3}
     percent: 12
   - name: "\uB204\uBAA8"
+    type: 3
     attack: 1
     health: 7
     sprite: {fileID: 21300000, guid: c35eee05e6de4af4c89db5dde1a953f6, type: 3}
     percent: 10
   - name: "\uB514\uB2C8\uC5D0"
+    type: 1
     attack: 4
     health: 4
     sprite: {fileID: 21300000, guid: 5c6911705ba52af4fb7f56b0007994a4, type: 3}
     percent: 10
   - name: "\uB77C\uB2C8\uC5D8"
+    type: 3
     attack: 1
     health: 4
     sprite: {fileID: 21300000, guid: 6b7fe22487aa38a489a467fb192b55c4, type: 3}
     percent: 15
   - name: "\uB8E8\uB370\uB098"
+    type: 0
     attack: 1
     health: 3
     sprite: {fileID: 21300000, guid: 4f1baa0a4e21a9646be696ea2364600b, type: 3}
     percent: 15
   - name: "\uB9AC\uCF54"
+    type: 2
     attack: 3
     health: 4
     sprite: {fileID: 21300000, guid: 3da4c65d49953564fa56303e22f9d707, type: 3}
     percent: 8
   - name: "\uCCB4\uB9AC"
+    type: 1
     attack: 4
     health: 5
     sprite: {fileID: 21300000, guid: af1414f2fea185c4e8663d68988c7006, type: 3}
     percent: 10
   - name: "\uCF08\uD2B8"
+    type: 2
     attack: 3
     health: 4
     sprite: {fileID: 21300000, guid: cd04a846ad942f547bf46cf7ac919b4a, type: 3}
     percent: 8
   - name: "\uD504\uB9AC\uB098"
+    type: 2
     attack: 3
     health: 4
     sprite: {fileID: 21300000, guid: eab16039e203fca43964d618183a93ab, type: 3}
     percent: 8
   - name: "\uD0C0\uC774\uAC70"
+    type: 2
     attack: 4
     health: 8
     sprite: {fileID: 21300000, guid: 437b06b0772460c43b0c528f81fbcaba, type: 3}
