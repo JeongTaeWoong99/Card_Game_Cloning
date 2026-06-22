@@ -8,6 +8,8 @@ public class Card : MonoBehaviour
     [CenterHeader("< 뷰 참조 >")]
     [SerializeField] private SpriteRenderer _card;
     [SerializeField] private SpriteRenderer _character;
+    [SerializeField] private TMP_Text       _typeTMP;
+    [SerializeField] private TMP_Text       _abilityTMP;
     [SerializeField] private TMP_Text       _nameTMP;
     [SerializeField] private TMP_Text       _attackTMP;
     [SerializeField] private TMP_Text       _healthTMP;
@@ -32,16 +34,20 @@ public class Card : MonoBehaviour
         if (_isFront)
         {
             _character.sprite = item.sprite;
+            _typeTMP.text     = $"타입 : {item.type.GetDisplayName()}";
+            _abilityTMP.text  = $"능력 : {item.ability}"; // 능력 내용은 차후 입력
             _nameTMP.text     = item.name;
             _attackTMP.text   = item.attack.ToString();
             _healthTMP.text   = item.health.ToString();
         }
         else
         {
-            _card.sprite    = _cardBack;
-            _nameTMP.text   = "";
-            _attackTMP.text = "";
-            _healthTMP.text = "";
+            _card.sprite     = _cardBack;
+            _typeTMP.text    = "";
+            _abilityTMP.text = "";
+            _nameTMP.text    = "";
+            _attackTMP.text  = "";
+            _healthTMP.text  = "";
         }
 
         // 뒤집힌 상대 카드는 마우스 입력이 필요 없으므로 콜라이더를 끈다
