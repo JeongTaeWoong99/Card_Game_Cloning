@@ -25,10 +25,11 @@ public class Skill : IWeighted
     public ESkillEffect    effect;
     public ESkillTargeting targeting;
     public int             manaCost;
-    public int             value;       // 효과 수치 (피해/회복/버프량)
+    public int             value;        // 효과 수치 (피해/회복/버프량)
+    public int             buffDuration; // 버프 지속(내 턴 기준). 0=영구, 1=이번 턴만, N=내 턴 N회. 버프 효과에서만 사용
     public string          description;
     public Sprite          sprite;
-    public float           percent;     // 드로우 가중치 (Deck 재사용)
+    public float           percent;      // 드로우 가중치 (Deck 재사용)
 
     public float Percent => percent;
 }

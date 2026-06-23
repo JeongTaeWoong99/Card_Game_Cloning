@@ -18,7 +18,9 @@ MonoBehaviour:
     targeting: 0
     manaCost: 3
     value: 3
-    description: "\uBB34\uC791\uC704 \uC801 \uC804\uBC29 1\uCCB4\uC5D0\uAC8C 3 \uD53C\uD574"
+    buffDuration: 0
+    description: "\uBB34\uC791\uC704 \uC801 \uC804\uBC29 1\uCCB4\uC5D0\uAC8C 3\uC758
+      \uD53C\uD574\uB97C \uC900\uB2E4."
     sprite: {fileID: 21300000, guid: 96d7e59998a74c844974c804450e325e, type: 3}
     percent: 30
   - name: "\uCE58\uC720\uC758 \uBE5B"
@@ -26,7 +28,9 @@ MonoBehaviour:
     targeting: 0
     manaCost: 3
     value: 2
-    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4 HP 2 \uD68C\uBCF5"
+    buffDuration: 0
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 2\uC529 \uD68C\uBCF5\uD55C\uB2E4.
+      \uD68C\uBCF5\uC740 \uCD5C\uB300 HP\uB97C \uB118\uC9C0 \uC54A\uB294\uB2E4."
     sprite: {fileID: 21300000, guid: b2d87a86809f4fd438356b3e9c807d22, type: 3}
     percent: 25
   - name: "\uC804\uC5F4 \uAC15\uD654"
@@ -34,7 +38,10 @@ MonoBehaviour:
     targeting: 0
     manaCost: 4
     value: 2
-    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4 HP 2 \uBC84\uD504"
+    buffDuration: 1
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 2\uC529 \uC62C\uB9B0\uB2E4.
+      \uC774\uBC88 \uB0B4 \uD134\uC774 \uB05D\uB098\uBA74 \uC0AC\uB77C\uC9C0\uBA70,
+      \uCD5C\uB300 HP\uB97C \uCD08\uACFC\uD574 \uC62C\uB9B4 \uC218 \uC788\uB2E4."
     sprite: {fileID: 21300000, guid: 19f20f311c966aa429ebe89a53daa048, type: 3}
     percent: 20
   - name: "\uC9D1\uC911 \uAC15\uD654"
@@ -42,6 +49,31 @@ MonoBehaviour:
     targeting: 1
     manaCost: 3
     value: 5
-    description: "\uC120\uD0DD\uD55C \uC544\uAD70 1\uCCB4 HP 5 \uBC84\uD504"
+    buffDuration: 1
+    description: "\uC120\uD0DD\uD55C \uC544\uAD70 1\uCCB4\uC758 HP\uB97C 5 \uC62C\uB9B0\uB2E4.
+      \uC774\uBC88 \uB0B4 \uD134\uC774 \uB05D\uB098\uBA74 \uC0AC\uB77C\uC9C0\uBA70,
+      \uCD5C\uB300 HP\uB97C \uCD08\uACFC\uD574 \uC62C\uB9B4 \uC218 \uC788\uB2E4."
     sprite: {fileID: 21300000, guid: 3396ac6ca11555a4bbd438a570dba06a, type: 3}
     percent: 25
+  - name: "\uC601\uAD6C \uAC01\uC131"
+    effect: 3
+    targeting: 1
+    manaCost: 5
+    value: 4
+    buffDuration: 0
+    description: "\uC120\uD0DD\uD55C \uC544\uAD70 1\uCCB4\uC758 HP\uB97C 4 \uC601\uAD6C\uD788
+      \uC62C\uB9B0\uB2E4. \uCD5C\uB300 HP\uB97C \uCD08\uACFC\uD574 \uC62C\uB9B4 \uC218
+      \uC788\uB2E4."
+    sprite: {fileID: 21300000, guid: b3336cd0b5a18b3419c20d63cc856182, type: 3}
+    percent: 15
+  - name: "\uC9C0\uC18D \uAC15\uD654"
+    effect: 2
+    targeting: 0
+    manaCost: 4
+    value: 3
+    buffDuration: 2
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 3\uC529 \uC62C\uB9B0\uB2E4.
+      \uB0B4 \uD134 2\uD68C \uB3D9\uC548 \uC720\uC9C0\uB418\uBA70, \uCD5C\uB300 HP\uB97C
+      \uCD08\uACFC\uD574 \uC62C\uB9B4 \uC218 \uC788\uB2E4."
+    sprite: {fileID: 21300000, guid: dd9b4c31a6e6af84da8976f8baccdd29, type: 3}
+    percent: 10
