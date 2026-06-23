@@ -16,42 +16,66 @@ MonoBehaviour:
   - name: "\uC804\uC0AC"
     type: 0
     ability: "\uC5C6\uC74C."
-    health: 12
-    sprite: {fileID: 21300000, guid: de31233ee04874649ab1eb9b1d8136ca, type: 3}
+    health: 8
+    sprite: {fileID: 21300000, guid: ab68432d4a2625443bb29eeb63702698, type: 3}
     percent: 20
   - name: "\uAE30\uC0AC"
     type: 0
     ability: "\uC5C6\uC74C."
-    health: 13
-    sprite: {fileID: 21300000, guid: abea75188aca37e4e914ae3163b81c47, type: 3}
+    health: 12
+    sprite: {fileID: 21300000, guid: f090c36b395e0034b9995f73ca62f353, type: 3}
     percent: 12
   - name: "\uAD81\uC218"
     type: 1
     ability: "\uC5C6\uC74C."
-    health: 9
-    sprite: {fileID: 21300000, guid: 4b16b3eaf25218843aaa18a01bf38128, type: 3}
+    health: 6
+    sprite: {fileID: 21300000, guid: be20c410a5001e54fbb7ec8704f59281, type: 3}
     percent: 15
   - name: "\uC11D\uAD81\uBCD1"
     type: 1
     ability: "\uC5C6\uC74C."
     health: 8
-    sprite: {fileID: 21300000, guid: c35eee05e6de4af4c89db5dde1a953f6, type: 3}
+    sprite: {fileID: 21300000, guid: 358d80bef01add146a41365250000c50, type: 3}
     percent: 10
   - name: "\uAD11\uC804\uC0AC"
     type: 2
     ability: "\uC5C6\uC74C."
     health: 10
-    sprite: {fileID: 21300000, guid: 5c6911705ba52af4fb7f56b0007994a4, type: 3}
+    sprite: {fileID: 21300000, guid: 5fe8b9399aa46fa418b5def335f797df, type: 3}
     percent: 8
   - name: "\uC0AC\uC81C"
     type: 3
     ability: "\uC5C6\uC74C."
-    health: 10
-    sprite: {fileID: 21300000, guid: 6b7fe22487aa38a489a467fb192b55c4, type: 3}
+    health: 9
+    sprite: {fileID: 21300000, guid: 6323a8dd5fd8c0245ae621a57efea139, type: 3}
     percent: 12
   - name: "\uC131\uB140"
     type: 3
     ability: "\uC5C6\uC74C."
-    health: 9
-    sprite: {fileID: 21300000, guid: 4f1baa0a4e21a9646be696ea2364600b, type: 3}
+    health: 12
+    sprite: {fileID: 21300000, guid: 76ff3922900285a46be9c4c070796f83, type: 3}
     percent: 8
+  - name: "\uC218\uD638\uBCD1"
+    type: 4
+    ability: "\uC5C6\uC74C."
+    health: 9
+    sprite: {fileID: 21300000, guid: 74bd4dfe0ddf4e040a166d8273696c69, type: 3}
+    percent: 12
+  - name: "\uC131\uAE30\uC0AC"
+    type: 4
+    ability: "\uC5C6\uC74C."
+    health: 11
+    sprite: {fileID: 21300000, guid: 66e4f9ec4e716d84e9edc1bd858b711f, type: 3}
+    percent: 8
+  - name: "\uD761\uD608\uADC0"
+    type: 5
+    ability: "\uC5C6\uC74C."
+    health: 7
+    sprite: {fileID: 21300000, guid: 79333c5b0370cd94ba2feaaa826a99f6, type: 3}
+    percent: 12
+  - name: "\uC0AC\uC2E0"
+    type: 5
+    ability: "\uC5C6\uC74C."
+    health: 9
+    sprite: {fileID: 21300000, guid: 8451e14672ad1544bbb5f318453baa79, type: 3}
+    percent: 10
