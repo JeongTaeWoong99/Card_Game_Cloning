@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
@@ -9,8 +10,11 @@ public class EntityManager : MonoBehaviour
 {
     public static EntityManager Inst { get; private set; }
 
-    private const int MaxRow          = 3; // 한 행(앞줄/뒷줄)의 최대 슬롯 수
-    private const int HealerHealAmount = 1; // 힐러 패시브 회복량
+    private const int   MaxRow            = 3;    // 한 행(앞줄/뒷줄)의 최대 슬롯 수
+    private const int   HealerHealAmount  = 1;    // 힐러 1틱당 회복량
+    private const int   FrontHealerTicks  = 3;    // 전방 힐러의 회복 횟수 (후방 힐러는 1회)
+    private const float MusouChargeChance = 0.5f; // 무쌍 후방 충전 발동 확률
+    private const float BackEffectDelay   = 0.3f; // 후방·턴시작 효과를 하나씩 보여주기 위한 텀(초)
 
     [CenterHeader("< 프리팹 >")]
     [SerializeField] private GameObject _entityPrefab;
@@ -33,6 +37,8 @@ public class EntityManager : MonoBehaviour
     private Entity _moveEntity;     // 세팅 단계에서 집어든(이동 중) 카드
     private bool   _moveFromFront;  // 집어들 당시의 행(앞줄 여부)
     private int    _moveFromIndex;  // 집어들 당시의 행 내 인덱스
+
+    private readonly WaitForSeconds _backEffectDelay = new(BackEffectDelay); // 효과 사이 텀(캐싱)
 
     // 외부(CombatSystem/EnemyAI)가 타겟·공격 후보로 쓰는 앞줄(공개) 엔티티
     public IReadOnlyList<Entity> MyFront    => _myFront;
@@ -57,18 +63,10 @@ public class EntityManager : MonoBehaviour
         Inst = this;
     }
 
-    // 턴 이벤트 구독 + 빈 슬롯 미리보기 숨김 (Unity 메시지)
+    // 빈 슬롯 미리보기 숨김 (Unity 메시지)
     private void Start()
     {
-        TurnManager.OnTurnStarted += OnTurnStarted;
-
         _myEmptyEntity.gameObject.SetActive(false); // 드래그 중에만 보이게 한다
-    }
-
-    // 이벤트 구독 해제 (Unity 메시지)
-    private void OnDestroy()
-    {
-        TurnManager.OnTurnStarted -= OnTurnStarted;
     }
 
     // 타겟 피커 표시를 매 프레임 갱신 (Unity 메시지)
@@ -100,8 +98,8 @@ public class EntityManager : MonoBehaviour
         var entity       = entityObject.GetComponent<Entity>();
 
         entity.isMine = isMine;
-        bool showFront = isMine || isFrontRow; // 내 카드는 항상 앞면, 상대는 앞줄만 앞면
-        entity.Setup(item, showFront, !isFrontRow);
+        // 상대 대기 카드도 내 카드처럼 공개(앞면)로 보여준다
+        entity.Setup(item, true, !isFrontRow);
 
         if (isMine)
         {
@@ -114,6 +112,29 @@ public class EntityManager : MonoBehaviour
         }
 
         EntityAlignment(isMine, isFrontRow);
+
+        return true;
+    }
+
+    // 치트 — 빈 슬롯 미리보기 없이 내 카드 1장을 앞줄 우선(차면 뒷줄)으로 배치한다 (CardManager.CheatAutoPlaceMyCards가 호출)
+    public bool CheatPlaceMyCard(Item item)
+    {
+        bool isFrontRow = RealCount(_myFront) < MaxRow;
+        var  rowList    = GetRow(true, isFrontRow);
+
+        if (RealCount(rowList) >= MaxRow)
+        {
+            return false; // 앞줄·뒷줄 모두 가득
+        }
+
+        Vector3 spawnPos = BoardLayout.GetSlotPosition(true, isFrontRow, rowList.Count, MaxRow);
+        var     entity   = Instantiate(_entityPrefab, spawnPos, Utils.QI).GetComponent<Entity>();
+
+        entity.isMine = true;
+        entity.Setup(item, true, !isFrontRow); // 내 카드는 항상 앞면, 뒷줄이면 대기 상태
+
+        rowList.Add(entity);
+        EntityAlignment(true, isFrontRow);
 
         return true;
     }
@@ -451,38 +472,107 @@ public class EntityManager : MonoBehaviour
 
     #region 턴
 
-    // 턴 시작 — 대기시간/공격권 갱신 → 힐러 패시브 → 상대 턴이면 AI 가동 (OnTurnStarted 구독)
-    private void OnTurnStarted(bool myTurn)
+    // 턴 시작 효과를 순차로 발동한다 — 공격권 갱신(즉시) → 후방 효과(엔티티별) → 전방 힐러(여러 틱).
+    // 각 발동 사이 텀을 둬 효과가 겹쳐 보이지 않게 하고, 완료까지 TurnManager가 yield로 대기한다 (TurnManager.StartTurnCo가 호출)
+    public IEnumerator ProcessTurnStartEffectsCo(bool isMine)
     {
-        RefreshTurnStart(myTurn);
-        ProcessHealers(myTurn);
+        RefreshTurnStart(isMine);
 
-        if (!myTurn)
+        yield return ProcessBackRowCo(isMine);
+        yield return ProcessFrontHealersCo(isMine);
+    }
+
+    // 후방 대기 카드의 타입별 효과를 한 장씩 발동한다 (자기 턴 시작)
+    private IEnumerator ProcessBackRowCo(bool isMine)
+    {
+        var back = isMine ? _myBack : _otherBack;
+
+        // 발동 도중 리스트가 바뀔 수 있으므로(원거리 견제로 적 사망 정리 등) 사본을 순회한다
+        foreach (Entity card in new List<Entity>(back))
         {
-            EnemyAI.Inst.Play();
+            if (card.isEmpty)
+            {
+                continue;
+            }
+
+            if (TriggerBackEffect(isMine, card))
+            {
+                yield return _backEffectDelay;
+            }
         }
     }
 
-    // 자기 턴 시작 시 — 전방 힐러마다 자신 제외 힐 가능한 전방 아군 중 무작위 1체를 회복한다
-    private void ProcessHealers(bool isMine)
+    // 후방 카드 1장의 타입별 효과를 발동한다. 실제로 발동했으면 true (텀을 둘지 판단용)
+    private bool TriggerBackEffect(bool isMine, Entity card)
+    {
+        switch (card.CardType)
+        {
+            case ECardType.Ranged: // 약한 견제 — 적 전방 무작위 1체에 공격력의 1/3(버림, 최소 1)만큼 화살 피해
+                Entity target = GetRandomEnemyFront(isMine);
+                if (target == null)
+                {
+                    return false;
+                }
+
+                int damage = Mathf.Max(1, card.health / 3);
+                CombatSystem.Inst.FirePokeArrow(card.transform.position, target, damage); // 후방 카드 자기 위치에서 발사
+
+                return true;
+
+            case ECardType.Musou: // 충전 — 50% 확률로 자신 HP +1 영구 버프(승격 시 강해짐)
+                if (Random.value >= MusouChargeChance)
+                {
+                    return false;
+                }
+                card.BuffHp(1, 0);
+
+                return true;
+
+            case ECardType.Healer: // 지속 — 회복 가능한 다른 전방 아군 1명 회복
+                return TryHealFront(isMine, card);
+
+            default: // Normal — 후방 효과 없음
+                return false;
+        }
+    }
+
+    // 전방 힐러마다 회복 가능한 다른 전방 아군을 1씩 여러 틱(FrontHealerTicks) 회복한다. 한 틱씩 보이도록 텀을 둔다
+    private IEnumerator ProcessFrontHealersCo(bool isMine)
     {
         var front = isMine ? _myFront : _otherFront;
 
-        foreach (Entity healer in front)
+        foreach (Entity healer in new List<Entity>(front))
         {
             if (healer.isEmpty || healer.isWaiting || healer.CardType != ECardType.Healer)
             {
                 continue;
             }
 
-            var candidates = front.FindAll(target => target != healer && target.CanHeal);
-            if (candidates.Count == 0)
+            for (int tick = 0; tick < FrontHealerTicks; tick++)
             {
-                continue;
-            }
+                if (!TryHealFront(isMine, healer)) // 회복할 대상이 없으면 조기 종료
+                {
+                    break;
+                }
 
-            candidates[Random.Range(0, candidates.Count)].Heal(HealerHealAmount);
+                yield return _backEffectDelay;
+            }
         }
+    }
+
+    // 자신 제외, 회복 가능한 전방 아군 무작위 1명을 1 회복한다. 회복했으면 true (전방·후방 힐러 공통)
+    private bool TryHealFront(bool isMine, Entity healer)
+    {
+        var front      = isMine ? _myFront : _otherFront;
+        var candidates = front.FindAll(target => target != healer && target.CanHeal);
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        candidates[Random.Range(0, candidates.Count)].Heal(HealerHealAmount);
+
+        return true;
     }
 
     // 이번 턴 진영의 앞줄·뒷줄 엔티티에 자기 턴 시작 처리를 순서대로 적용한다 (EnemyAI보다 먼저)
@@ -499,6 +589,20 @@ public class EntityManager : MonoBehaviour
         foreach (var entity in backList)
         {
             entity.OnMyTurnStart(); // 대기 카드는 내부에서 무시된다
+        }
+    }
+
+    // 해당 진영의 앞줄·뒷줄 엔티티에 한시 버프 만료를 적용한다 (TurnManager.EndTurn이 호출)
+    public void TickBuffs(bool isMine)
+    {
+        foreach (var entity in (isMine ? _myFront : _otherFront))
+        {
+            entity.TickBuffs();
+        }
+
+        foreach (var entity in (isMine ? _myBack : _otherBack))
+        {
+            entity.TickBuffs();
         }
     }
 

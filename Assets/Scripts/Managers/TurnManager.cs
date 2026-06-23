@@ -34,6 +34,7 @@ public class TurnManager : MonoBehaviour
     private readonly WaitForSeconds _addCardDelay     = new WaitForSeconds(0.5f);
     private readonly WaitForSeconds _fastAddCardDelay = new WaitForSeconds(0.05f);
     private readonly WaitForSeconds _turnDelay        = new WaitForSeconds(0.7f);
+    private readonly WaitForSeconds _afterEffectDelay = new WaitForSeconds(0.5f); // 후방 효과 후 알림 전 텀
 
     private WaitForSeconds _currentAddCardDelay; // _fastMode에 따라 선택되는 현재 카드 분배 딜레이
 
@@ -98,19 +99,17 @@ public class TurnManager : MonoBehaviour
     // 턴 종료 — 턴을 넘기고 다음 턴 시작 (EndTurnBtn 버튼·EnemyAI·치트가 호출)
     public void EndTurn()
     {
+        EntityManager.Inst.TickBuffs(myTurn); // 방금 끝난 진영의 한시 버프 만료
+
         myTurn = !myTurn;
 
         StartCoroutine(StartTurnCo());
     }
 
-    // 턴 시작 — 알림 → 스킬 드로우 시도 → 입력 잠금 해제 → OnTurnStarted 발행
+    // 턴 시작 — 마나·드로우 → 턴 시작 효과(완료까지 대기) → 알림 → 입력 잠금 해제 → 버튼 갱신/AI 가동
     private IEnumerator StartTurnCo()
     {
-        isLoading = true;
-
-        GameManager.Inst.Notification(myTurn ? "나의 턴" : "상대 턴");
-
-        yield return _turnDelay;
+        isLoading = true; // 효과가 모두 끝날 때까지 입력 잠금 유지
 
         // 턴 시작 진영 마나 +1 회복
         ManaManager.Inst.GainMana(myTurn);
@@ -128,11 +127,25 @@ public class TurnManager : MonoBehaviour
             _otherFirstBattleTurn = false;
         }
 
+        // 후방/턴시작 효과를 한 장씩 순차로 발동하고, 모두 끝날 때까지 대기한다
+        yield return StartCoroutine(EntityManager.Inst.ProcessTurnStartEffectsCo(myTurn));
+
+        // 효과가 발동된 걸 눈으로 확인할 여유를 둔 뒤 턴 알림을 띄운다
+        yield return _afterEffectDelay;
+
+        // 알림을 띄우고 조작을 허용한다
+        GameManager.Inst.Notification(myTurn ? "나의 턴" : "상대 턴");
+
         yield return _turnDelay;
 
         isLoading = false;
 
-        OnTurnStarted?.Invoke(myTurn); // 구독자들(매니저·버튼)에게 턴 시작 알림
+        OnTurnStarted?.Invoke(myTurn); // 구독자(턴 종료 버튼 등) 갱신
+
+        if (!myTurn)
+        {
+            EnemyAI.Inst.Play(); // 상대 턴이면 AI 행동 시작
+        }
     }
 
     #endregion

@@ -1,7 +1,6 @@
 using UnityEngine;
 
-// 카드 속성(종류). 속성별 효과(데미지/반격/광역/힐)는 차후 구현하며,
-// 현재는 공격 대기시간 산정에만 사용한다.
+// 카드 속성(종류). 전방(전투) 효과·후방(대기) 효과·공격 대기시간이 속성별로 갈린다.
 public enum ECardType
 {
     Normal, // 일반
@@ -37,20 +36,32 @@ public static class CardTypeExtensions
         };
     }
 
-    // 카드 상단에 표시할 속성 효과 설명 (README §4 압축). 끝에 공격 쿨타임을 함께 표기한다
-    // 예) "일반 : 자신의 현재 HP만큼 피해 및 상대 카드의 현재 HP만큼 반격 피해를 받음.(공격 쿨타임 0)"
-    public static string GetEffectText(this ECardType type)
+    // 전방(공개) 배치 시의 전투 효과 설명 (README §4). 끝에 공격 쿨타임을 함께 표기한다 (전방텍스트)
+    public static string GetFrontEffectText(this ECardType type)
     {
         string effect = type switch
         {
             ECardType.Normal => "자신의 현재 HP만큼 피해 및 상대 카드의 현재 HP만큼 반격 피해를 받음.",
             ECardType.Ranged => "자신의 현재 HP만큼 피해. 반격 피해 없음.",
             ECardType.Musou  => "대상에게 현재 HP 100% 피해, 인접 적 무작위 1장에 50% 추가 피해.",
-            ECardType.Healer => "턴 시작 시 다른 아군 HP 1 회복. 공격은 일반과 동일.",
+            ECardType.Healer => "턴 시작 시 회복 가능한 다른 전방 아군 HP를 1씩 3회 회복. 공격은 일반과 동일.",
             _                => "",
         };
 
-        return $"{type.GetDisplayName()} : {effect}(공격 쿨타임 {type.GetWaitTurn()})";
+        return $"{effect}(공격 쿨타임 {type.GetWaitTurn()})";
+    }
+
+    // 후방(대기) 배치 시 자기 턴 시작마다 발동되는 효과 설명 (후방텍스트)
+    public static string GetBackEffectText(this ECardType type)
+    {
+        return type switch
+        {
+            ECardType.Normal => "없음.",
+            ECardType.Ranged => "내 턴 시작 시 적 전방 무작위 1장에 공격력의 1/3(소수점 버림) 피해.",
+            ECardType.Musou  => "내 턴 시작 시 50% 확률로 자신 HP +1 충전.",
+            ECardType.Healer => "내 턴 시작 시 회복 가능한 다른 전방 아군 HP를 1 회복.",
+            _                => "",
+        };
     }
 }
 

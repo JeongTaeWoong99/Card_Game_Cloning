@@ -8,8 +8,9 @@ public class Card : MonoBehaviour
     [CenterHeader("< 뷰 참조 >")]
     [SerializeField] private SpriteRenderer _card;
     [SerializeField] private SpriteRenderer _character;
-    [SerializeField] private TMP_Text       _typeTMP;
-    [SerializeField] private TMP_Text       _abilityTMP;
+    [SerializeField] private TMP_Text       _typeTMP;  // 타입명 (예: 일반)
+    [SerializeField] private TMP_Text       _frontTMP; // 전방(전투) 효과
+    [SerializeField] private TMP_Text       _backTMP;  // 후방(대기) 효과
     [SerializeField] private TMP_Text       _nameTMP;
     [SerializeField] private TMP_Text       _healthTMP;
 
@@ -30,26 +31,26 @@ public class Card : MonoBehaviour
         this.item = item;
         _isFront  = isFront;
 
+        // 뒷면(대기)에서는 캐릭터 렌더러를 꺼 프리팹 기본 스프라이트 노출을 막는다 (SkillCard·Entity와 동일 패턴)
+        _character.enabled = isFront;
+
         if (_isFront)
         {
-            // 능력은 아직 미구현이므로 비어 있으면 안내 문구로 대체한다
-            string ability = string.IsNullOrEmpty(item.ability)
-                ? "대기 상태에서 배치되는 순간 발동되는 효과.(추후 추가 예정)"
-                : item.ability;
-
             _character.sprite = item.sprite;
-            _typeTMP.text     = item.type.GetEffectText();
-            _abilityTMP.text  = $"능력 : {ability}";
+            _typeTMP.text     = item.type.GetDisplayName();     // 타입명
+            _frontTMP.text    = item.type.GetFrontEffectText(); // 전방 효과
+            _backTMP.text     = item.type.GetBackEffectText();  // 후방 효과
             _nameTMP.text     = item.name;
             _healthTMP.text   = item.health.ToString();
         }
         else
         {
-            _card.sprite     = _cardBack;
-            _typeTMP.text    = "";
-            _abilityTMP.text = "";
-            _nameTMP.text    = "";
-            _healthTMP.text  = "";
+            _card.sprite    = _cardBack;
+            _typeTMP.text   = "";
+            _frontTMP.text  = "";
+            _backTMP.text   = "";
+            _nameTMP.text   = "";
+            _healthTMP.text = "";
         }
 
         // 뒤집힌 상대 카드는 마우스 입력이 필요 없으므로 콜라이더를 끈다

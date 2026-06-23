@@ -15,47 +15,43 @@ MonoBehaviour:
   items:
   - name: "\uC804\uC0AC"
     type: 0
-    ability: "\uADFC\uC811 \uACF5\uACA9. \uD53C\uACA9 \uC2DC \uBC18\uACA9\uD55C\uB2E4."
+    ability: "\uC5C6\uC74C."
     health: 12
     sprite: {fileID: 21300000, guid: de31233ee04874649ab1eb9b1d8136ca, type: 3}
     percent: 20
   - name: "\uAE30\uC0AC"
     type: 0
-    ability: "\uD2BC\uD2BC\uD55C \uADFC\uC811 \uC804\uC0AC. \uBC18\uACA9\uC744 \uBCF4\uC720\uD55C\uB2E4."
+    ability: "\uC5C6\uC74C."
     health: 13
     sprite: {fileID: 21300000, guid: abea75188aca37e4e914ae3163b81c47, type: 3}
     percent: 12
   - name: "\uAD81\uC218"
     type: 1
-    ability: "\uC6D0\uAC70\uB9AC \uD654\uC0B4 \uACF5\uACA9(\uBC18\uACA9 \uC5C6\uC74C).
-      \uBC30\uCE58 \uD6C4 1\uD134 \uB300\uAE30."
+    ability: "\uC5C6\uC74C."
     health: 9
     sprite: {fileID: 21300000, guid: 4b16b3eaf25218843aaa18a01bf38128, type: 3}
     percent: 15
   - name: "\uC11D\uAD81\uBCD1"
     type: 1
-    ability: "\uAC15\uD55C \uC6D0\uAC70\uB9AC \uACF5\uACA9(\uBC18\uACA9 \uC5C6\uC74C).
-      1\uD134 \uB300\uAE30."
+    ability: "\uC5C6\uC74C."
     health: 8
     sprite: {fileID: 21300000, guid: c35eee05e6de4af4c89db5dde1a953f6, type: 3}
     percent: 10
   - name: "\uAD11\uC804\uC0AC"
     type: 2
-    ability: "\uAD11\uC5ED \uACF5\uACA9(\uC778\uC811 \uCD94\uAC00\uD0C0). \uBC18\uACA9
-      \uC5C6\uC74C, 2\uD134 \uB300\uAE30."
+    ability: "\uC5C6\uC74C."
     health: 10
     sprite: {fileID: 21300000, guid: 5c6911705ba52af4fb7f56b0007994a4, type: 3}
     percent: 8
   - name: "\uC0AC\uC81C"
     type: 3
-    ability: "\uC544\uAD70\uC744 \uD68C\uBCF5\uD558\uB294 \uC9C0\uC6D0\uD615. \uBC18\uACA9\uC744
-      \uBCF4\uC720\uD55C\uB2E4."
+    ability: "\uC5C6\uC74C."
     health: 10
     sprite: {fileID: 21300000, guid: 6b7fe22487aa38a489a467fb192b55c4, type: 3}
     percent: 12
   - name: "\uC131\uB140"
     type: 3
-    ability: "\uAC15\uD55C \uD68C\uBCF5 \uC9C0\uC6D0\uD615. \uBC18\uACA9\uC744 \uBCF4\uC720\uD55C\uB2E4."
+    ability: "\uC5C6\uC74C."
     health: 9
     sprite: {fileID: 21300000, guid: 4f1baa0a4e21a9646be696ea2364600b, type: 3}
     percent: 8

@@ -49,7 +49,7 @@ public class EnemyAI : MonoBehaviour
 
     #region 전투 페이즈
 
-    // 상대 턴 행동 시작 (상대 턴에 EntityManager.OnTurnStarted가 호출)
+    // 상대 턴 행동 시작 (상대 턴 시작 효과가 끝난 뒤 TurnManager.StartTurnCo가 호출)
     public void Play()
     {
         StartCoroutine(PlayCo());

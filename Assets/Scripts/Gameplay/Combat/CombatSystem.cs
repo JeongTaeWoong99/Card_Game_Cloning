@@ -28,6 +28,7 @@ public class CombatSystem : MonoBehaviour
     public void Attack(Entity attacker, Entity defender)
     {
         attacker.attackable = false;
+        attacker.RefreshSleepParticle(); // 공격을 마쳐 더는 공격할 수 없음을 zzz로 표시
 
         switch (attacker.CardType)
         {
@@ -105,6 +106,20 @@ public class CombatSystem : MonoBehaviour
             defender.Damaged(damage);
             SpawnDamage(damage, defender.transform);
             AttackCallback(attacker, defender);
+        });
+    }
+
+    // 지정 위치에서 적 전방 1체로 화살을 쏘고, 도착 시 피해·정리·승패 판정 (후방 원거리 견제·투사체 스킬이 호출)
+    public void FirePokeArrow(Vector3 from, Entity target, int damage)
+    {
+        var arrow = Instantiate(_arrowPrefab).GetComponent<Arrow>();
+        arrow.Fire(from, target.transform.position, () =>
+        {
+            target.Damaged(damage);
+            SpawnDamage(damage, target.transform);
+
+            EntityManager.Inst.RemoveDeadAndRealign(target);
+            GameManager.Inst.CheckBattleResult();
         });
     }
 
