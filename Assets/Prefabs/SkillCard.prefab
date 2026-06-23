@@ -291,6 +291,7 @@ MonoBehaviour:
     targeting: 0
     manaCost: 0
     value: 0
+    buffDuration: 0
     description: 
     sprite: {fileID: 0}
     percent: 0
@@ -513,8 +514,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -0.7}
-  m_SizeDelta: {x: 2.2, y: 0.4}
+  m_AnchoredPosition: {x: 0, y: -0.8}
+  m_SizeDelta: {x: 2.2, y: 0.6}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!23 &8451904067325954459
 MeshRenderer:
@@ -585,8 +586,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uB2A5\uB825 : \uB300\uAE30 \uC0C1\uD0DC\uC5D0\uC11C \uBC30\uCE58\uB418\uB294
-    \uC21C\uAC04 \uBC1C\uB3D9\uB418\uB294 \uD6A8\uACFC."
+  m_text: "\uC2A4\uD0AC \uD6A8\uACFC\uB97C \uC124\uBA85\uD558\uB294 \uD14D\uC2A4\uD2B8\uC785\uB2C8\uB2E4."
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 51fc0b592ad3e014e8ff8c4c898a77a8, type: 2}
   m_sharedMaterial: {fileID: 1409007631558297729, guid: 51fc0b592ad3e014e8ff8c4c898a77a8, type: 2}
@@ -620,8 +620,8 @@ MonoBehaviour:
   m_fontSizeMin: 1
   m_fontSizeMax: 2
   m_fontStyle: 0
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_characterHorizontalScale: 1
