@@ -7,6 +7,8 @@ using DG.Tweening;
 // 앞줄(공개)은 전투에 참여하고, 뒷줄(대기)은 공격·피격이 불가하다.
 public class Entity : MonoBehaviour
 {
+    private const int ShieldDamageReduction = 2; // 방패형이 받는 피해에서 차감하는 고정값(최소 1 보장)
+
     [CenterHeader("< 데이터 >")]
     [SerializeField] private Item _item;
 
@@ -140,6 +142,17 @@ public class Entity : MonoBehaviour
 
         SetFront(true);
         _sleepParticle.SetActive(!isWaiting && _waitCount > 0);
+    }
+
+    // 방패형이면 받는 피해에서 고정값을 차감한다(최소 1). 모든 피해 적용 직전 호출 (CombatSystem·SkillSystem이 호출)
+    public int ApplyDefense(int rawDamage)
+    {
+        if (_item.type == ECardType.Shield)
+        {
+            return Mathf.Max(1, rawDamage - ShieldDamageReduction);
+        }
+
+        return rawDamage;
     }
 
     // 데미지를 적용하고 이번 피해로 사망했는지 반환한다

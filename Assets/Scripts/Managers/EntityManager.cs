@@ -342,7 +342,15 @@ public class EntityManager : MonoBehaviour
 
         if (_selectEntity && _targetPickEntity && _selectEntity.attackable)
         {
-            CombatSystem.Inst.Attack(_selectEntity, _targetPickEntity);
+            // 적 전방에 방패형(도발)이 있으면 근접 타입은 방패형만 공격할 수 있다 (원거리는 예외)
+            if (CanMeleeTarget(_selectEntity, _targetPickEntity))
+            {
+                CombatSystem.Inst.Attack(_selectEntity, _targetPickEntity);
+            }
+            else
+            {
+                GameManager.Inst.Notification("원거리를 제외한 타입은 도발(방패) 대상만 공격할 수 있습니다");
+            }
         }
 
         _selectEntity     = null;
@@ -651,6 +659,21 @@ public class EntityManager : MonoBehaviour
         }
 
         return neighbors.Count == 0 ? null : neighbors[Random.Range(0, neighbors.Count)];
+    }
+
+    // 근접 공격자가 이 타겟을 칠 수 있는지 — 적 전방에 방패형(생존)이 있으면 방패형만 허용. 원거리는 제한 없음
+    // (EntityManager 공격 확정·EnemyAI 타겟 선택이 호출)
+    public bool CanMeleeTarget(Entity attacker, Entity target)
+    {
+        if (attacker.CardType == ECardType.Ranged)
+        {
+            return true;
+        }
+
+        var  enemyFront = target.isMine ? _myFront : _otherFront;
+        bool hasShield  = enemyFront.Exists(e => !e.isEmpty && !e.isDie && e.CardType == ECardType.Shield);
+
+        return !hasShield || target.CardType == ECardType.Shield;
     }
 
     // 진영·행에 해당하는 리스트를 반환한다

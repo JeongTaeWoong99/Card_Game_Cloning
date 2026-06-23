@@ -81,11 +81,22 @@ public class EnemyAI : MonoBehaviour
                 continue;
             }
 
-            // 매 공격마다 최신 내 앞줄을 후보로 삼아 무작위 타겟을 고른다
-            var defenders = new List<Entity>(EntityManager.Inst.MyFront);
+            // 매 공격마다 최신 내 앞줄을 후보로 삼아 무작위 타겟을 고른다 (도발: 방패형이 있으면 방패형만)
+            var defenders = new List<Entity>(EntityManager.Inst.MyFront)
+                .FindAll(target => EntityManager.Inst.CanMeleeTarget(attacker, target));
             if (defenders.Count == 0)
             {
                 break;
+            }
+
+            // 원거리는 도발을 무시하므로 방패가 아닌 카드를 우선 저격하고, 방패만 남으면 방패를 친다
+            if (attacker.CardType == ECardType.Ranged)
+            {
+                var nonShield = defenders.FindAll(target => target.CardType != ECardType.Shield);
+                if (nonShield.Count > 0)
+                {
+                    defenders = nonShield;
+                }
             }
 
             int rand = Random.Range(0, defenders.Count);
