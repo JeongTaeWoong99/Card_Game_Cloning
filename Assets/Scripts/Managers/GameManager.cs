@@ -142,6 +142,12 @@ public class GameManager : MonoBehaviour
         {
             ManaManager.Inst.FillMana(true);
         }
+
+        // 5. 세팅 단계 — 내 손패 전부 자동 배치
+        if (CheatKeyDown(KeyCode.Alpha5, KeyCode.Keypad5))
+        {
+            CardManager.Inst.CheatAutoPlaceMyCards();
+        }
     }
 
     // 해당 진영 앞줄의 첫 카드를 즉사시키고 제거·승격·승패 판정을 진행한다 (치트용)

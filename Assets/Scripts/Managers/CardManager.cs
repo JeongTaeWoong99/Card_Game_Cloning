@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using DG.Tweening;
@@ -13,7 +14,10 @@ public class CardManager : MonoBehaviour
 
     private enum ECardState { Nothing, CanMouseOver, CanMouseDrag }
 
-    private const float DragSkillCardScale = 1.2f; // 드래그 중 스킬 카드 축소 스케일 (손패 1.9보다 작게)
+    private const float DragSkillCardScale = 1.2f;  // 드래그 중 스킬 카드 축소 스케일 (손패 1.9보다 작게)
+    private const float SkillEnterOffset   = 20f;   // 스킬 연출 카드 등장 시작 x 오프셋 (왼쪽 화면 밖)
+    private const float SkillEnterTime     = 0.3f;  // 스킬 연출 카드 등장 이동 시간
+    private const float SkillExitTime      = 0.2f;  // 스킬 연출 카드 퇴장 축소 시간
 
     [CenterHeader("< 참조 >")]
     [SerializeField] private ItemSO     _itemSO;
@@ -35,6 +39,11 @@ public class CardManager : MonoBehaviour
     [SerializeField] private Transform _otherCardLeft;
     [SerializeField] private Transform _otherCardRight;
 
+    [CenterHeader("< 필드 미리보기 / 스킬 연출 위치 >")]
+    [SerializeField] private Transform _myPreviewPoint;    // 상대 엔티티 정보 표시 위치 (내 필드 쪽 = 아래)
+    [SerializeField] private Transform _otherPreviewPoint; // 내 엔티티 정보 표시 위치 (상대 필드 쪽 = 위)
+    [SerializeField] private Transform _skillCastPoint;    // 스킬 발동 연출 위치 (좌중앙)
+
     [CenterHeader("< 상태 >")]
     [SerializeField] private ECardState _cardState;
 
@@ -46,6 +55,12 @@ public class CardManager : MonoBehaviour
 
     private SkillCard _selectSkillCard;   // 드래그 중인 스킬 카드
     private bool      _isMySkillCardDrag; // 내 스킬 카드 드래그 중
+
+    private Card   _fieldPreviewCard;    // 재사용하는 필드 엔티티 미리보기 카드
+    private Entity _previewSourceEntity; // 현재 미리보기 중인 필드 엔티티
+
+    private readonly WaitForSeconds _skillShowDelay = new(0.8f);          // 스킬 연출 카드 노출 유지
+    private readonly WaitForSeconds _skillExitDelay = new(SkillExitTime); // 스킬 연출 카드 퇴장 대기
 
     // 내 전투 턴 + 로딩 중이 아닐 때 스킬 발동 가능
     private bool CanPlaySkill => TurnManager.Inst.IsBattlePhase && TurnManager.Inst.myTurn
@@ -308,6 +323,88 @@ public class CardManager : MonoBehaviour
         }
     }
 
+    // 치트 — 세팅 단계에서 내 손패 전부를 앞줄 우선으로 자동 배치한다 (GameManager 치트키가 호출)
+    public void CheatAutoPlaceMyCards()
+    {
+        if (TurnManager.Inst.phase != TurnManager.EGamePhase.Setup)
+        {
+            return;
+        }
+
+        EntityManager.Inst.RemoveMyEmptyEntity(); // 드래그 미리보기 정리
+
+        foreach (Card card in new List<Card>(_myCards))
+        {
+            if (!EntityManager.Inst.CheatPlaceMyCard(card.item))
+            {
+                continue;
+            }
+
+            _myCards.Remove(card);
+            card.transform.DOKill();
+            Destroy(card.gameObject);
+        }
+
+        _selectCard = null;
+        CardAlignment(true);
+    }
+
+    #endregion
+
+    #region 필드 미리보기
+
+    // 필드 엔티티에 마우스 오버 — 내 엔티티는 상대 필드 쪽, 상대 엔티티는 내 필드 쪽에 카드 형태로 정보를 띄운다
+    // (Entity.OnMouseOver가 호출)
+    public void ShowFieldPreview(Entity entity)
+    {
+        // 드래그 중이거나 빈 슬롯이면 미리보기를 띄우지 않는다
+        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty)
+        {
+            return;
+        }
+
+        if (_previewSourceEntity == entity) // 같은 엔티티 위에서는 매 프레임 재생성하지 않는다
+        {
+            return;
+        }
+
+        Transform point = entity.isMine ? _otherPreviewPoint : _myPreviewPoint;
+        if (point == null)
+        {
+            return;
+        }
+
+        _previewSourceEntity = entity;
+
+        if (_fieldPreviewCard == null)
+        {
+            _fieldPreviewCard = Instantiate(_cardPrefab).GetComponent<Card>();
+        }
+
+        _fieldPreviewCard.gameObject.SetActive(true);
+        _fieldPreviewCard.transform.position   = point.position;
+        _fieldPreviewCard.transform.localScale = point.localScale;
+        _fieldPreviewCard.Setup(entity.Item, true);                      // 앞면(정보 공개)으로 표시
+        _fieldPreviewCard.GetComponent<Collider2D>().enabled = false;    // Setup이 콜라이더를 켜므로 다시 끈다(입력 차단)
+        _fieldPreviewCard.GetComponent<Order>().SetMostFrontOrder(true); // 필드 엔티티 위로
+    }
+
+    // 필드 엔티티에서 마우스 이탈 — 해당 엔티티의 미리보기였으면 숨긴다 (Entity.OnMouseExit가 호출)
+    public void HideFieldPreview(Entity entity)
+    {
+        if (_previewSourceEntity != entity)
+        {
+            return;
+        }
+
+        _previewSourceEntity = null;
+
+        if (_fieldPreviewCard != null)
+        {
+            _fieldPreviewCard.gameObject.SetActive(false);
+        }
+    }
+
     #endregion
 
     #region 스킬 (전투)
@@ -407,11 +504,11 @@ public class CardManager : MonoBehaviour
         }
         else if (skill.targeting == ESkillTargeting.None)
         {
-            // 논타겟: 영역 밖에서 놓으면 즉시 발동 (마나 재확인)
+            // 논타겟: 영역 밖에서 놓으면 발동 (마나 재확인). 카드를 치우고 발동 연출 후 효과 적용
             if (ManaManager.Inst.TrySpend(true, skill.manaCost))
             {
-                SkillSystem.Inst.Cast(skill, true);
                 DiscardSkillCard(true, card);
+                StartCoroutine(PlaySkillCo(skill, true, null));
             }
             else
             {
@@ -424,8 +521,8 @@ public class CardManager : MonoBehaviour
             Entity target = EntityManager.Inst.ConsumeSkillTarget();
             if (target != null && ManaManager.Inst.TrySpend(true, skill.manaCost))
             {
-                SkillSystem.Inst.Cast(skill, true, target);
                 DiscardSkillCard(true, card);
+                StartCoroutine(PlaySkillCo(skill, true, target));
             }
             else
             {
@@ -464,10 +561,39 @@ public class CardManager : MonoBehaviour
             : null;
 
         ManaManager.Inst.TrySpend(false, skill.manaCost);
-        SkillSystem.Inst.Cast(skill, false, target);
         DiscardSkillCard(false, card);
+        StartCoroutine(PlaySkillCo(skill, false, target)); // 손패에서 치우되, 연출로 어떤 스킬인지 보여준 뒤 발동
 
         return true;
+    }
+
+    // 스킬 발동 연출 — 좌중앙에 스킬 카드를 띄워 어떤 스킬인지 보여준 뒤, 카드가 사라지면 실제 효과를 적용한다 (내/상대 공통)
+    private IEnumerator PlaySkillCo(Skill skill, bool isMine, Entity target)
+    {
+        if (_skillCastPoint == null) // 연출 위치 미할당 시 곧바로 발동
+        {
+            SkillSystem.Inst.Cast(skill, isMine, target);
+
+            yield break;
+        }
+
+        Vector3 showPos  = _skillCastPoint.position;
+        Vector3 startPos = showPos + Vector3.left * SkillEnterOffset;
+
+        var presented = Instantiate(_skillCardPrefab, startPos, Utils.QI).GetComponent<SkillCard>();
+        presented.Setup(skill, true);
+        presented.GetComponent<Collider2D>().enabled = false; // 연출 카드는 입력을 받지 않는다
+        presented.transform.localScale = _skillCastPoint.localScale;
+        presented.GetComponent<Order>().SetMostFrontOrder(true);
+
+        presented.transform.DOMove(showPos, SkillEnterTime); // 왼쪽에서 스르륵 등장
+        yield return _skillShowDelay;
+
+        presented.transform.DOScale(Vector3.zero, SkillExitTime); // 사라짐
+        yield return _skillExitDelay;
+        Destroy(presented.gameObject);
+
+        SkillSystem.Inst.Cast(skill, isMine, target); // 카드가 사라진 뒤 효과 적용
     }
 
     // 스킬 카드를 손패에서 제거·파괴하고 재정렬한다
