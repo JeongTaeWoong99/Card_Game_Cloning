@@ -30,6 +30,7 @@ public class TurnManager : MonoBehaviour
     public EGamePhase phase;
 
     public bool IsBattlePhase => phase == EGamePhase.Battle;
+    public bool IsFastMode    => _fastMode; // 페스트 모드 여부 (상대 자동 배치 즉시화 등에 사용)
 
     private readonly WaitForSeconds _addCardDelay      = new WaitForSeconds(0.5f);
     private readonly WaitForSeconds _fastAddCardDelay  = new WaitForSeconds(0.05f);

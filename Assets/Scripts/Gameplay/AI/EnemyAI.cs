@@ -32,16 +32,24 @@ public class EnemyAI : MonoBehaviour
     // 앞줄 3장 → 뒷줄 3장 순으로 자기 손패를 배치한다
     private IEnumerator SetupPlaceCo()
     {
+        bool fast = TurnManager.Inst.IsFastMode; // 페스트 모드면 딜레이 없이 한순간에 배치
+
         for (int i = 0; i < RowCount; i++)
         {
             CardManager.Inst.TryPutCard(false, true); // 앞줄
-            yield return _putDelay;
+            if (!fast)
+            {
+                yield return _putDelay;
+            }
         }
 
         for (int i = 0; i < RowCount; i++)
         {
             CardManager.Inst.TryPutCard(false, false); // 뒷줄
-            yield return _putDelay;
+            if (!fast)
+            {
+                yield return _putDelay;
+            }
         }
 
         CardManager.Inst.DrawSkillCards(false, TurnManager.SetupSkillDraw); // 배치 완료 시 상대 스킬 4장
