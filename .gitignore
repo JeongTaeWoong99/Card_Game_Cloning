@@ -97,6 +97,10 @@ crashlytics-build.properties
 # --- IDE (JetBrains Rider) ---
 .idea/
 
+# --- Unity Performance Testing 자동 생성물 ---
+/[Aa]ssets/[Rr]esources/PerformanceTestRun*.json
+/[Aa]ssets/[Rr]esources/PerformanceTestRun*.json.meta
+
 # --- Unity AI Assistant 자동 생성물 ---
 /GeneratedAssets/
 /[Aa]ssets/AI Toolkit/
