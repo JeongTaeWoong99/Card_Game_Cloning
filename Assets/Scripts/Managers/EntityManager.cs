@@ -12,7 +12,8 @@ public class EntityManager : MonoBehaviour
 
     private const int   MaxRow            = 3;    // 한 행(앞줄/뒷줄)의 최대 슬롯 수
     private const int   HealerHealAmount  = 1;    // 힐러 1틱당 회복량
-    private const int   FrontHealerTicks  = 3;    // 전방 힐러의 회복 횟수 (후방 힐러는 1회)
+    private const int   FrontHealerTicks  = 1;    // 전방 힐러의 회복 횟수
+    private const int   BackHealerTicks   = 3;    // 후방 힐러의 회복 횟수
     private const float MusouChargeChance = 0.5f; // 무쌍 후방 충전 발동 확률
     private const float BackEffectDelay   = 0.3f; // 후방·턴시작 효과를 하나씩 보여주기 위한 텀(초)
 
@@ -43,6 +44,9 @@ public class EntityManager : MonoBehaviour
     // 외부(CombatSystem/EnemyAI)가 타겟·공격 후보로 쓰는 앞줄(공개) 엔티티
     public IReadOnlyList<Entity> MyFront    => _myFront;
     public IReadOnlyList<Entity> OtherFront => _otherFront;
+
+    // 공격자를 선택해 타겟팅 중인지 — 이때 호버 카드 미리보기를 막는다 (CardManager가 호출)
+    public bool IsSelectingAttacker => _selectEntity != null;
 
     // 승패 판정용 — 진영의 카드(앞줄+뒷줄)가 모두 제거되었는지
     public bool IsMyAllDead    => _myFront.Count == 0 && _myBack.Count == 0;
@@ -349,12 +353,13 @@ public class EntityManager : MonoBehaviour
             }
             else
             {
-                GameManager.Inst.Notification("원거리를 제외한 타입은 도발(방패) 대상만 공격할 수 있습니다");
+                CardManager.Inst.ShowWarning("원거리를 제외한 타입은 도발(방패) 대상만 공격할 수 있습니다");
             }
         }
 
         _selectEntity     = null;
         _targetPickEntity = null;
+        CardManager.Inst.HideDamagePreview(); // 공격 실행/취소 시 딜 예측 숨김
     }
 
     // 드래그 — 세팅 단계면 집어든 카드를 마우스로 이동, 전투 단계면 상대 앞줄을 타겟 지정 (Entity.OnMouseDrag이 호출)
@@ -388,9 +393,15 @@ public class EntityManager : MonoBehaviour
             }
         }
 
-        if (!existTarget)
+        // 타겟이 잡히면 딜 교환 예측을 표시하고, 없으면 숨긴다
+        if (existTarget)
+        {
+            CardManager.Inst.ShowDamagePreview(_selectEntity, _targetPickEntity);
+        }
+        else
         {
             _targetPickEntity = null;
+            CardManager.Inst.HideDamagePreview();
         }
     }
 
@@ -536,8 +547,14 @@ public class EntityManager : MonoBehaviour
 
                 return true;
 
-            case ECardType.Healer: // 지속 — 회복 가능한 다른 전방 아군 1명 회복
-                return TryHealFront(isMine, card);
+            case ECardType.Healer: // 지속 — 회복 가능한 다른 전방 아군을 1씩 여러 번 회복
+                bool healed = false;
+                for (int i = 0; i < BackHealerTicks; i++)
+                {
+                    healed |= TryHealFront(isMine, card);
+                }
+
+                return healed;
 
             default: // Normal — 후방 효과 없음
                 return false;

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 using DG.Tweening;
 using Random = UnityEngine.Random;
 
@@ -18,6 +19,8 @@ public class CardManager : MonoBehaviour
     private const float SkillEnterOffset   = 20f;   // 스킬 연출 카드 등장 시작 x 오프셋 (왼쪽 화면 밖)
     private const float SkillEnterTime     = 0.3f;  // 스킬 연출 카드 등장 이동 시간
     private const float SkillExitTime      = 0.2f;  // 스킬 연출 카드 퇴장 축소 시간
+    private const float WarningHoldTime    = 0.5f;  // 도발 등 경고 유지 시간
+    private const float WarningFadeTime    = 1f;    // 경고 페이드 아웃 시간
 
     [CenterHeader("< 참조 >")]
     [SerializeField] private ItemSO     _itemSO;
@@ -44,20 +47,40 @@ public class CardManager : MonoBehaviour
     [SerializeField] private Transform _otherPreviewPoint; // 내 엔티티 정보 표시 위치 (상대 필드 쪽 = 위)
     [SerializeField] private Transform _skillCastPoint;    // 스킬 발동 연출 위치 (좌중앙)
 
+    [CenterHeader("< 배치 안내 (세팅) >")]
+    [SerializeField] private GameObject _frontHighlight; // 전방 배치 영역 강조(포커스)
+    [SerializeField] private GameObject _backHighlight;  // 후방 배치 영역 강조(포커스)
+    [SerializeField] private TMP_Text   _placeGuideTMP;  // 배치 안내 문구
+
+    [CenterHeader("< 딜 예측 (전투) >")]
+    [SerializeField] private GameObject _damagePreview;        // 딜 예측 패널(묶음)
+    [SerializeField] private Transform  _previewMyCardPoint;   // 내 카드 미리보기 위치
+    [SerializeField] private Transform  _previewEnemyCardPoint;// 상대 카드 미리보기 위치
+    [SerializeField] private TMP_Text   _dealtTMP;             // 주는 피해
+    [SerializeField] private TMP_Text   _counterTMP;           // 받는 반격
+
     [CenterHeader("< 상태 >")]
     [SerializeField] private ECardState _cardState;
 
-    private Deck<Item>  _deck;
     private Deck<Skill> _skillDeck;
     private Card        _selectCard;
     private bool        _isMyCardDrag;
     private bool        _onMyCardArea;
+
+    private Queue<ECardType> _myDealTypes;    // 내 분배에 남은 속성 (각 속성 1장씩 보장)
+    private Queue<ECardType> _otherDealTypes; // 상대 분배에 남은 속성
+
+    private System.Random _myDealRng;    // 내 분배 전용 난수 (상대와 독립된 시드)
+    private System.Random _otherDealRng; // 상대 분배 전용 난수
 
     private SkillCard _selectSkillCard;   // 드래그 중인 스킬 카드
     private bool      _isMySkillCardDrag; // 내 스킬 카드 드래그 중
 
     private Card   _fieldPreviewCard;    // 재사용하는 필드 엔티티 미리보기 카드
     private Entity _previewSourceEntity; // 현재 미리보기 중인 필드 엔티티
+
+    private Card _dealtPreviewCard; // 딜 예측 — 내 카드 미리보기
+    private Card _dealtEnemyCard;   // 딜 예측 — 상대 카드 미리보기
 
     private readonly WaitForSeconds _skillShowDelay = new(0.8f);          // 스킬 연출 카드 노출 유지
     private readonly WaitForSeconds _skillExitDelay = new(SkillExitTime); // 스킬 연출 카드 퇴장 대기
@@ -76,8 +99,13 @@ public class CardManager : MonoBehaviour
     // 덱 생성 + 카드 분배 이벤트 구독 (Unity 메시지)
     private void Start()
     {
-        _deck      = new Deck<Item>(_itemSO.items);
         _skillDeck = new Deck<Skill>(_skillSO.skills);
+
+        _myDealRng    = new System.Random(System.Guid.NewGuid().GetHashCode());
+        _otherDealRng = new System.Random(System.Guid.NewGuid().GetHashCode());
+
+        _myDealTypes    = BuildDealTypeQueue(_myDealRng);
+        _otherDealTypes = BuildDealTypeQueue(_otherDealRng);
 
         TurnManager.OnAddCard += AddCard;
     }
@@ -155,6 +183,8 @@ public class CardManager : MonoBehaviour
             bool isFrontRow = BoardLayout.IsMyFrontRow(Utils.MousePos.y);
             TryPutCard(true, isFrontRow);
         }
+
+        HidePlaceGuide(); // 드롭하면 안내 숨김
     }
 
     // 드래그 중 카드를 마우스로 이동시키고, 마우스 위치에 맞는 행에 빈 슬롯 미리보기를 띄운다
@@ -169,6 +199,11 @@ public class CardManager : MonoBehaviour
         {
             _selectCard.MoveTransform(new PRS(Utils.MousePos, Utils.QI, _selectCard.originPRS.scale), false);
             EntityManager.Inst.InsertMyEmptyEntity(Utils.MousePos.x, Utils.MousePos.y);
+            ShowPlaceGuide(BoardLayout.IsMyFrontRow(Utils.MousePos.y)); // 배치 영역 포커스 + 역할 안내
+        }
+        else
+        {
+            HidePlaceGuide(); // 손패 영역으로 돌아오면 안내 숨김
         }
     }
 
@@ -265,11 +300,38 @@ public class CardManager : MonoBehaviour
         var spawnPoint = isMine ? _cardSpawnPoint : _otherCardSpawnPoint;
         var cardObject = Instantiate(_cardPrefab, spawnPoint.position, Utils.QI);
         var card       = cardObject.GetComponent<Card>();
-        card.Setup(_deck.Pop(), isMine); // 내 카드는 앞면, 상대 카드는 뒷면
+
+        // 각 속성을 1장씩 보장: 진영별 독립 난수로 큐에서 속성을 꺼내 그 속성의 카드 중 무작위 1종을 준다
+        System.Random rng  = isMine ? _myDealRng : _otherDealRng;
+        ECardType     type = (isMine ? _myDealTypes : _otherDealTypes).Dequeue();
+        card.Setup(PickRandomItemOfType(type, rng), isMine); // 내 카드는 앞면, 상대 카드는 뒷면
+
         (isMine ? _myCards : _otherCards).Add(card);
 
         SetOriginOrder(isMine);
         CardAlignment(isMine);
+    }
+
+    // 모든 속성을 무작위 순서로 담은 분배 큐를 만든다 (속성 종 수 = 시작 손패 수). 진영별 난수로 셔플
+    private static Queue<ECardType> BuildDealTypeQueue(System.Random rng)
+    {
+        var types = new List<ECardType>((ECardType[])Enum.GetValues(typeof(ECardType)));
+
+        for (int i = types.Count - 1; i > 0; i--) // Fisher-Yates
+        {
+            int j = rng.Next(i + 1);
+            (types[i], types[j]) = (types[j], types[i]);
+        }
+
+        return new Queue<ECardType>(types);
+    }
+
+    // 지정 속성의 카드 중 무작위 1종을 반환한다 (진영별 난수)
+    private Item PickRandomItemOfType(ECardType type, System.Random rng)
+    {
+        var pool = Array.FindAll(_itemSO.items, item => item.type == type);
+
+        return pool[rng.Next(pool.Length)];
     }
 
     // 스킬 덱에서 count장을 뽑아 손패에 추가한다. 내 카드는 앞면, 상대 카드는 뒷면 (TurnManager가 호출)
@@ -357,8 +419,8 @@ public class CardManager : MonoBehaviour
     // (Entity.OnMouseOver가 호출)
     public void ShowFieldPreview(Entity entity)
     {
-        // 드래그 중이거나 빈 슬롯이면 미리보기를 띄우지 않는다
-        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty)
+        // 드래그 중·빈 슬롯·공격 타겟팅 중이면 호버 미리보기를 띄우지 않는다(딜 예측과 겹침 방지)
+        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty || EntityManager.Inst.IsSelectingAttacker)
         {
             return;
         }
@@ -407,6 +469,142 @@ public class CardManager : MonoBehaviour
 
     #endregion
 
+    #region 배치 안내 / 딜 예측
+
+    // 세팅 드래그 중 — 마우스가 가리키는 행(전방/후방)을 강조하고 역할 안내를 띄운다 (CardDrag가 호출)
+    private void ShowPlaceGuide(bool isFront)
+    {
+        if (_frontHighlight != null)
+        {
+            _frontHighlight.SetActive(isFront);
+        }
+        if (_backHighlight != null)
+        {
+            _backHighlight.SetActive(!isFront);
+        }
+
+        if (_placeGuideTMP == null)
+        {
+            return;
+        }
+
+        DOTween.Kill(_placeGuideTMP);
+        _placeGuideTMP.alpha = 1f; // 경고 페이드로 낮아진 알파 복원
+        _placeGuideTMP.gameObject.SetActive(true);
+        _placeGuideTMP.text = isFront
+            ? "전방에 배치할 카드 3장을 놓아주세요.\n전방 카드는 직접 공격이 가능합니다."
+            : "후방에 배치할 카드 3장을 놓아주세요.\n후방 카드는 전방 카드 사망 시 왼쪽부터 순서대로 전방으로 투입됩니다.";
+    }
+
+    // 배치 안내·영역 강조를 숨긴다 (드롭/손패 복귀 시)
+    private void HidePlaceGuide()
+    {
+        if (_frontHighlight != null)
+        {
+            _frontHighlight.SetActive(false);
+        }
+        if (_backHighlight != null)
+        {
+            _backHighlight.SetActive(false);
+        }
+        if (_placeGuideTMP != null)
+        {
+            DOTween.Kill(_placeGuideTMP);
+            _placeGuideTMP.gameObject.SetActive(false);
+        }
+    }
+
+    // 전투 중 경고 안내를 잠깐 띄웠다가 서서히 사라지게 한다 (도발 위반 등, EntityManager가 호출)
+    public void ShowWarning(string message)
+    {
+        if (_placeGuideTMP == null)
+        {
+            return;
+        }
+
+        DOTween.Kill(_placeGuideTMP);
+        _placeGuideTMP.gameObject.SetActive(true);
+        _placeGuideTMP.text  = message;
+        _placeGuideTMP.alpha = 1f;
+
+        DOTween.To(() => _placeGuideTMP.alpha, a => _placeGuideTMP.alpha = a, 0f, WarningFadeTime)
+            .SetTarget(_placeGuideTMP)
+            .SetDelay(WarningHoldTime)
+            .OnComplete(() => _placeGuideTMP.gameObject.SetActive(false));
+    }
+
+    // 공격 드래그 중 — 내 카드·상대 카드 미리보기와 예상 피해/반격을 표시한다 (EntityManager가 호출)
+    public void ShowDamagePreview(Entity attacker, Entity defender)
+    {
+        if (_damagePreview == null)
+        {
+            return;
+        }
+
+        // 이미 떠 있던 호버 카드 미리보기를 끈다(겹침 방지)
+        if (_fieldPreviewCard != null)
+        {
+            _fieldPreviewCard.gameObject.SetActive(false);
+        }
+        _previewSourceEntity = null;
+
+        var (dealt, counter) = CombatSystem.Inst.PredictDamage(attacker, defender);
+
+        _damagePreview.SetActive(true);
+        SetPreviewCard(ref _dealtPreviewCard, _previewMyCardPoint,    attacker.Item, attacker.health);
+        SetPreviewCard(ref _dealtEnemyCard,   _previewEnemyCardPoint, defender.Item, defender.health);
+
+        if (_dealtTMP != null)
+        {
+            _dealtTMP.text = $"주는 피해 {dealt}";
+        }
+        if (_counterTMP != null)
+        {
+            _counterTMP.text = $"받는 반격 {counter}";
+        }
+    }
+
+    // 딜 예측을 숨긴다 (타겟 해제/공격 실행 시)
+    public void HideDamagePreview()
+    {
+        if (_damagePreview != null)
+        {
+            _damagePreview.SetActive(false);
+        }
+        if (_dealtPreviewCard != null)
+        {
+            _dealtPreviewCard.gameObject.SetActive(false);
+        }
+        if (_dealtEnemyCard != null)
+        {
+            _dealtEnemyCard.gameObject.SetActive(false);
+        }
+    }
+
+    // 미리보기 카드를 지정 위치에 앞면으로 세팅한다(없으면 생성, 입력 차단). HP는 현재 값으로 표시
+    private void SetPreviewCard(ref Card card, Transform point, Item item, int currentHealth)
+    {
+        if (point == null)
+        {
+            return;
+        }
+
+        if (card == null)
+        {
+            card = Instantiate(_cardPrefab).GetComponent<Card>();
+        }
+
+        card.gameObject.SetActive(true);
+        card.transform.position   = point.position;
+        card.transform.localScale = point.localScale;
+        card.Setup(item, true);
+        card.SetHealth(currentHealth);                         // 원본(max)이 아닌 현재 HP로 표시
+        card.GetComponent<Collider2D>().enabled = false;       // 미리보기는 입력을 받지 않음
+        card.GetComponent<Order>().SetMostFrontOrder(true);    // 다른 요소 위로
+    }
+
+    #endregion
+
     #region 스킬 (전투)
 
     // 스킬 카드에 마우스 진입 — 드래그 중이 아니면 확대 (SkillCard.OnMouseOver가 호출)
@@ -441,7 +639,7 @@ public class CardManager : MonoBehaviour
 
         if (!ManaManager.Inst.CanAfford(true, card.skill.manaCost))
         {
-            GameManager.Inst.Notification("마나가 부족합니다");
+            ShowWarning("마나가 부족합니다");
 
             return;
         }

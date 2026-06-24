@@ -43,6 +43,8 @@ public class EnemyAI : MonoBehaviour
             CardManager.Inst.TryPutCard(false, false); // 뒷줄
             yield return _putDelay;
         }
+
+        CardManager.Inst.DrawSkillCards(false, TurnManager.SetupSkillDraw); // 배치 완료 시 상대 스킬 4장
     }
 
     #endregion

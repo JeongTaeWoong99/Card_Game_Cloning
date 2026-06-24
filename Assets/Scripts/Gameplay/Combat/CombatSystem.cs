@@ -59,6 +59,17 @@ public class CombatSystem : MonoBehaviour
         return Mathf.Max(1, Mathf.FloorToInt(hp * ratio));
     }
 
+    // (주는 피해, 받는 반격) 예측 — 실제 적용 X. 원거리는 반격 0, 방패 경감 반영 (딜 예측 UI가 호출)
+    public (int dealt, int counter) PredictDamage(Entity attacker, Entity defender)
+    {
+        int dealt   = defender.ApplyDefense(CalcDamage(attacker.health, DamageRatio));
+        int counter = attacker.CardType == ECardType.Ranged
+            ? 0
+            : attacker.ApplyDefense(CalcDamage(defender.health, CounterRatio));
+
+        return (dealt, counter);
+    }
+
     // 근접(일반·힐러·방패) — 대상 위치로 이동 후 양측 현재 HP 절반씩 동시 피해(반격 O)
     private void MeleeAttack(Entity attacker, Entity defender)
     {
@@ -81,10 +92,12 @@ public class CombatSystem : MonoBehaviour
             .OnComplete(() => AttackCallback(attacker, defender));
     }
 
-    // 흡혈 — 근접 이동 후 대상에 피해 → 반격을 받고 → 살아남으면 회복(+VampireHealAmount)
+    // 흡혈 — 근접 이동 후 대상에 피해 → 반격을 받고 → 제자리로 돌아온 뒤 살아남았으면 회복(+VampireHealAmount)
     private void VampireAttack(Entity attacker, Entity defender)
     {
         attacker.GetComponent<Order>().SetMostFrontOrder(true);
+
+        bool attackerDied = false;
 
         DOTween.Sequence()
             .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
@@ -96,16 +109,18 @@ public class CombatSystem : MonoBehaviour
                 defender.Damaged(toDefender);
                 SpawnDamage(toDefender, defender.transform);
 
-                int  toAttacker   = attacker.ApplyDefense(CalcDamage(defenderHp, CounterRatio));
-                bool attackerDied = attacker.Damaged(toAttacker);
+                int toAttacker = attacker.ApplyDefense(CalcDamage(defenderHp, CounterRatio));
+                attackerDied   = attacker.Damaged(toAttacker);
                 SpawnDamage(toAttacker, attacker.transform);
-
-                if (!attackerDied) // 반격에서 살아남았을 때만 회복
+            })
+            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
+            .AppendCallback(() =>
+            {
+                if (!attackerDied) // 제자리로 돌아온 뒤 생존 시 회복
                 {
                     attacker.Heal(VampireHealAmount);
                 }
             })
-            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
             .OnComplete(() => AttackCallback(attacker, defender));
     }
 

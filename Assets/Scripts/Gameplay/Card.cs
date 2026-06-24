@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using TMPro;
 using DG.Tweening;
 
@@ -8,9 +9,8 @@ public class Card : MonoBehaviour
     [CenterHeader("< 뷰 참조 >")]
     [SerializeField] private SpriteRenderer _card;
     [SerializeField] private SpriteRenderer _character;
-    [SerializeField] private TMP_Text       _typeTMP;  // 타입명 (예: 일반)
-    [SerializeField] private TMP_Text       _frontTMP; // 전방(전투) 효과
-    [SerializeField] private TMP_Text       _backTMP;  // 후방(대기) 효과
+    [SerializeField] private TMP_Text       _typeTMP;   // 타입명 (예: 일반)
+    [SerializeField] private TMP_Text       _attackTMP; // 공격·능력 효과(합본)
     [SerializeField] private TMP_Text       _nameTMP;
     [SerializeField] private TMP_Text       _healthTMP;
 
@@ -36,10 +36,12 @@ public class Card : MonoBehaviour
 
         if (_isFront)
         {
+            // <공격>·<능력> 표기를 리치텍스트 태그로 해석하지 않고 그대로 보이게 한다
+            _attackTMP.richText = false;
+
             _character.sprite = item.sprite;
-            _typeTMP.text     = item.type.GetDisplayName();     // 타입명
-            _frontTMP.text    = item.type.GetFrontEffectText(); // 전방 효과
-            _backTMP.text     = item.type.GetBackEffectText();  // 후방 효과
+            _typeTMP.text     = item.type.GetDisplayName(); // 타입명
+            _attackTMP.text   = $"{item.type.GetAttackText()}\n{item.type.GetAbilityText()}"; // 공격+능력 합본
             _nameTMP.text     = item.name;
             _healthTMP.text   = item.health.ToString();
         }
@@ -47,14 +49,19 @@ public class Card : MonoBehaviour
         {
             _card.sprite    = _cardBack;
             _typeTMP.text   = "";
-            _frontTMP.text  = "";
-            _backTMP.text   = "";
+            _attackTMP.text = "";
             _nameTMP.text   = "";
             _healthTMP.text = "";
         }
 
         // 뒤집힌 상대 카드는 마우스 입력이 필요 없으므로 콜라이더를 끈다
         GetComponent<PolygonCollider2D>().enabled = isFront;
+    }
+
+    // HP 표시를 현재 값으로 덮어쓴다 — 딜 예측 미리보기에서 원본(max)이 아닌 실제 HP를 보이기 위함 (CardManager가 호출)
+    public void SetHealth(int currentHealth)
+    {
+        _healthTMP.text = currentHealth.ToString();
     }
 
     // PRS(위치/회전/스케일)로 이동 — 즉시 또는 DOTween 보간

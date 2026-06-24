@@ -40,39 +40,43 @@ public static class CardTypeExtensions
         };
     }
 
-    // 전방(공개) 배치 시의 전투 효과 설명. 끝에 공격 쿨타임을 함께 표기한다 (전방텍스트)
-    // 모든 전투 피해는 현재 HP의 절반(소수점 버림, 최소 1)으로 적용된다
-    public static string GetFrontEffectText(this ECardType type)
+    // 공격(전투) 시 효과 설명. 모든 전투 피해는 현재 HP의 절반(버림·최소 1). 끝에 공격 쿨타임 표기 (공격텍스트)
+    public static string GetAttackText(this ECardType type)
     {
-        string effect = type switch
+        string attack = type switch
         {
-            ECardType.Normal  => "자신의 현재 HP 절반만큼 피해, 상대도 현재 HP 절반만큼 반격.",
-            ECardType.Ranged  => "자신의 현재 HP 절반만큼 피해. 반격 없음.",
-            ECardType.Musou   => "대상에게 현재 HP 50% 피해, 인접 적 1장에 25% 추가 피해. 상대도 현재 HP 절반만큼 반격.",
-            ECardType.Healer  => "턴 시작 시 회복 가능한 다른 전방 아군 HP를 1씩 3회 회복. 공격은 일반과 동일.",
-            ECardType.Shield  => "받는 모든 피해 -2(최소 1). 적 근접 공격은 이 카드만 노림(도발). 공격은 일반과 동일.",
-            ECardType.Vampire => "공격해 피해를 주고 반격을 받은 뒤, 살아남으면 자신 HP +3 회복. 공격은 일반과 동일.",
+            ECardType.Normal  => "현재 HP 절반만큼 피해. 상대도 현재 HP 절반만큼 반격.",
+            ECardType.Ranged  => "현재 HP 절반만큼 피해. 반격 없음. 도발 무시(방패를 건너뛰고 공격).",
+            ECardType.Musou   => "대상에게 현재 HP 50% 피해 + 인접 적 1장에 25% 피해. 상대도 현재 HP 절반만큼 반격.",
+            ECardType.Healer  => "현재 HP 절반만큼 피해. 상대도 현재 HP 절반만큼 반격.",
+            ECardType.Shield  => "현재 HP 절반만큼 피해. 상대도 현재 HP 절반만큼 반격.",
+            ECardType.Vampire => "현재 HP 절반만큼 피해. 상대도 현재 HP 절반만큼 반격. 살아남으면 자신 HP +3 회복.",
             _                 => "",
         };
 
-        return $"전방 배치 효과\n\n{effect}(공격 쿨타임 {type.GetWaitTurn()})";
+        int    waitTurn = type.GetWaitTurn();
+        string waitText = waitTurn == 0
+            ? "(전방 배치 후 바로 공격 가능)"
+            : $"(전방 배치 후 {waitTurn}턴 동안 대기 상태)";
+
+        return $"<공격>\n{attack}{waitText}";
     }
 
-    // 후방(대기) 배치 시 자기 턴 시작마다 발동되는 효과 설명 (후방텍스트)
-    public static string GetBackEffectText(this ECardType type)
+    // 패시브·지속 능력 설명. 위치 의존 효과는 문구에 명시한다 (능력텍스트)
+    public static string GetAbilityText(this ECardType type)
     {
-        string effect = type switch
+        string ability = type switch
         {
             ECardType.Normal  => "없음.",
-            ECardType.Ranged  => "내 턴 시작 시 적 전방 무작위 1장에 공격력의 1/3(소수점 버림) 피해.",
-            ECardType.Musou   => "내 턴 시작 시 50% 확률로 자신 HP +1 충전.",
-            ECardType.Healer  => "내 턴 시작 시 회복 가능한 다른 전방 아군 HP를 1 회복.",
-            ECardType.Shield  => "없음.",
+            ECardType.Ranged  => "후방에 있을 때, 내 턴 시작 시 적 전방 무작위 1장에 공격력의 1/3(소수점 버림) 피해.",
+            ECardType.Musou   => "후방에 있을 때, 내 턴 시작 시 50% 확률로 자신 HP +1 충전.",
+            ECardType.Healer  => "내 턴 시작 시 회복 가능한 다른 전방 아군 HP 회복(전방=1회 / 후방=1씩 3회).",
+            ECardType.Shield  => "받는 모든 피해 -2(최소 1). 적 근접 공격은 이 카드만 노림(도발).",
             ECardType.Vampire => "없음.",
             _                 => "",
         };
 
-        return $"후방 배치 효과\n\n{effect}";
+        return $"<능력>\n{ability}";
     }
 }
 
@@ -83,7 +87,6 @@ public class Item : IWeighted
 {
     public string    name;
     public ECardType type;    // 카드 속성 (전투 효과·대기시간 산정에 사용)
-    public string    ability; // 카드 고유 능력 설명
     public int       health;
     public Sprite    sprite;
     public float     percent;
