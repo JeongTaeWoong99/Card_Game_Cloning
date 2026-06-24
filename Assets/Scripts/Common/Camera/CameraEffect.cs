@@ -1,21 +1,35 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
-// 게임오버 시 화면 전체를 흑백·어둡게 만드는 URP 글로벌 볼륨을 토글한다.
-// (URP는 Built-in 의 OnRenderImage 를 호출하지 않으므로 Volume 가중치로 포스트프로세싱을 제어)
+// 게임오버 시 화면 채도를 낮춰(흑백) 표현한다.
+// URP 글로벌 볼륨의 Color Adjustments → Saturation 을 제어한다. (weight가 아니라 채도 값 직접 조정)
 public class CameraEffect : MonoBehaviour
 {
-    [SerializeField] private Volume _grayscaleVolume;
+    private const float GrayscaleSaturation = -100f; // 흑백으로 보이게 하는 채도
 
-    // 흑백·어둡게 효과를 켜고 끈다 (GameManager가 호출)
+    [SerializeField] private Volume _volume;
+
+    private ColorAdjustments _colorAdjustments;
+
+    // 볼륨 프로파일의 Color Adjustments 오버라이드를 캐싱한다 (Unity 메시지)
+    private void Awake()
+    {
+        if (_volume != null)
+        {
+            _volume.profile.TryGet(out _colorAdjustments);
+        }
+    }
+
+    // 흑백 효과를 켜고 끈다 — Saturation을 -100(흑백) / 0(원상)으로 설정 (GameManager가 호출)
     public void SetGrayScale(bool isGrayscale)
     {
-        if (_grayscaleVolume == null)
+        if (_colorAdjustments == null)
         {
             return;
         }
 
-        // weight 0 = 효과 없음, 1 = 흑백·어둡게 전체 적용
-        _grayscaleVolume.weight = isGrayscale ? 1f : 0f;
+        _colorAdjustments.saturation.overrideState = true;
+        _colorAdjustments.saturation.value         = isGrayscale ? GrayscaleSaturation : 0f;
     }
 }
