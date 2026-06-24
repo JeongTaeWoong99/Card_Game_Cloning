@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,9 +8,9 @@ using UnityEngine.UI;
 public class ActionBtn : MonoBehaviour
 {
     [CenterHeader("< 스프라이트 / 텍스트 >")]
-    [SerializeField] private Sprite _activeSprite;
-    [SerializeField] private Sprite _inactiveSprite;
-    [SerializeField] private Text   _btnText;
+    [SerializeField] private Sprite          _activeSprite;
+    [SerializeField] private Sprite          _inactiveSprite;
+    [SerializeField] private TextMeshProUGUI _btnText;
 
     private Image  _image;
     private Button _button;
@@ -28,6 +29,14 @@ public class ActionBtn : MonoBehaviour
     // 페이즈에 따라 텍스트·활성 상태를 매 프레임 갱신한다 (Unity 메시지)
     private void Update()
     {
+        // 데미지 프리뷰가 떠 있으면 버튼이 앞을 가리지 않도록 숨긴다 (렌더·레이캐스트 모두 차단)
+        if (CardManager.Inst.IsDamagePreviewActive)
+        {
+            SetVisible(false);
+            return;
+        }
+        SetVisible(true);
+
         if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
         {
             _btnText.text = "세팅 완료";
@@ -59,5 +68,12 @@ public class ActionBtn : MonoBehaviour
         _image.sprite        = isActive ? _activeSprite : _inactiveSprite;
         _button.interactable = isActive;
         _btnText.color       = isActive ? ActiveTextColor : InactiveTextColor;
+    }
+
+    // 버튼 렌더·레이캐스트 표시 여부 (이미지/텍스트 끄면 클릭도 통과)
+    private void SetVisible(bool visible)
+    {
+        _image.enabled   = visible;
+        _btnText.enabled = visible;
     }
 }

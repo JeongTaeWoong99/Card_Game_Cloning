@@ -84,6 +84,8 @@ public class Card : MonoBehaviour
     // 마우스 올림 — 확대 (앞면만, Unity 마우스 메시지)
     private void OnMouseOver()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
         if (_isFront)
         {
             CardManager.Inst.CardMouseOver(this);
@@ -102,6 +104,8 @@ public class Card : MonoBehaviour
     // 마우스 누름 — 드래그 시작 (앞면만, Unity 마우스 메시지)
     private void OnMouseDown()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
         if (_isFront)
         {
             CardManager.Inst.CardMouseDown();

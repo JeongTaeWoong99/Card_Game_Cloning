@@ -307,8 +307,13 @@ public class EntityManager : MonoBehaviour
     {
         _targetPickEntity = null;
 
-        foreach (var hit in Physics2D.RaycastAll(pos, Vector3.forward))
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
         {
+            return false;
+        }
+
+        foreach (var hit in Physics2D.RaycastAll(pos, Vector3.forward))
+{
             Entity entity = hit.collider?.GetComponent<Entity>();
             if (entity != null && entity.isMine && !entity.isWaiting && !entity.isEmpty)
             {
@@ -332,6 +337,14 @@ public class EntityManager : MonoBehaviour
     // 손을 뗌 — 세팅 단계면 이동 확정, 전투 단계면 공격 실행 (Entity.OnMouseUp이 호출)
     public void EntityMouseUp()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            _selectEntity = null;
+            _targetPickEntity = null;
+            CardManager.Inst.HideDamagePreview();
+            return;
+        }
+
         if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
         {
             EndSetupMove();
@@ -365,6 +378,18 @@ public class EntityManager : MonoBehaviour
     // 드래그 — 세팅 단계면 집어든 카드를 마우스로 이동, 전투 단계면 상대 앞줄을 타겟 지정 (Entity.OnMouseDrag이 호출)
     public void EntityMouseDrag()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            _targetPickEntity = null;
+            CardManager.Inst.HideDamagePreview();
+            
+            if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup && _moveEntity != null)
+            {
+                _moveEntity.MoveTransform(Utils.MousePos, false);
+            }
+            return;
+        }
+
         if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
         {
             if (_moveEntity != null)

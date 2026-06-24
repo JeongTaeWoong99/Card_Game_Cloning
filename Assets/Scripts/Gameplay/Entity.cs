@@ -266,6 +266,8 @@ public class Entity : MonoBehaviour
     // 내 앞줄 엔티티 누름 — 공격자 선택 (Unity 마우스 메시지)
     private void OnMouseDown()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
         if (isMine && !isEmpty)
         {
             EntityManager.Inst.EntityMouseDown(this);
@@ -290,9 +292,11 @@ public class Entity : MonoBehaviour
         }
     }
 
-    // 마우스 올림 — 필드 엔티티의 카드 형태 정보 미리보기 (Unity 마우스 메시지)
+    // 마우스 올림 — 필드 엔티티의 카드 정보 미리보기 (Unity 마우스 메시지)
     private void OnMouseOver()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
         if (!isEmpty)
         {
             CardManager.Inst.ShowFieldPreview(this);

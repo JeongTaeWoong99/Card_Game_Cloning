@@ -226,8 +226,14 @@ public class CardManager : MonoBehaviour
     // 마우스가 손패 영역(MyCardArea 레이어) 위에 있는지 검사한다
     private void DetectCardArea()
     {
+        if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        {
+            _onMyCardArea = false;
+            return;
+        }
+
         RaycastHit2D[] hits  = Physics2D.RaycastAll(Utils.MousePos, Vector3.forward);
-        int            layer = LayerMask.NameToLayer("MyCardArea");
+int            layer = LayerMask.NameToLayer("MyCardArea");
         _onMyCardArea = Array.Exists(hits, x => x.collider.gameObject.layer == layer);
     }
 
@@ -532,6 +538,9 @@ public class CardManager : MonoBehaviour
             .SetDelay(WarningHoldTime)
             .OnComplete(() => _placeGuideTMP.gameObject.SetActive(false));
     }
+
+    // 데미지 프리뷰 패널이 떠 있는지 여부 (ActionBtn이 버튼을 숨길지 판단)
+    public bool IsDamagePreviewActive => _damagePreview != null && _damagePreview.activeSelf;
 
     // 공격 드래그 중 — 내 카드·상대 카드 미리보기와 예상 피해/반격을 표시한다 (EntityManager가 호출)
     public void ShowDamagePreview(Entity attacker, Entity defender)
