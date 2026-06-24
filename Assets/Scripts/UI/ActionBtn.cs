@@ -12,18 +12,15 @@ public class ActionBtn : MonoBehaviour
     [SerializeField] private Sprite          _inactiveSprite;
     [SerializeField] private TextMeshProUGUI _btnText;
 
-    private Image  _image;
-    private Button _button;
+    private Image _image;
 
     private static readonly Color32 ActiveTextColor   = new Color32(255, 195, 90, 255);
-    private static readonly Color32 InactiveTextColor = new Color32(55, 55, 55, 255);
-
+    private static readonly Color32 InactiveTextColor = new Color32(127, 127, 127, 255);
 
     // 컴포넌트 캐싱 (Unity 메시지)
     private void Awake()
     {
-        _image  = GetComponent<Image>();
-        _button = GetComponent<Button>();
+        _image = GetComponent<Image>();
     }
 
     // 페이즈에 따라 텍스트·활성 상태를 매 프레임 갱신한다 (Unity 메시지)
@@ -49,25 +46,37 @@ public class ActionBtn : MonoBehaviour
         }
     }
 
-    // 클릭 — 세팅 페이즈면 전투 시작, 전투 페이즈면 턴 종료 (버튼 OnClick에 할당)
+    // 클릭 — 세팅 페이즈면 전투 시작(미완료면 안내), 전투 페이즈면 턴 종료 (버튼 OnClick에 할당)
+    // 버튼은 항상 클릭 가능하게 두고(비활성 외형만 표시), 실제 가능 여부는 여기서 판정한다.
     public void OnClick()
     {
+        if (TurnManager.Inst.isLoading) // 로딩 중 입력 무시
+        {
+            return;
+        }
+
         if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
         {
-            TurnManager.Inst.OnSetupDone();
+            if (EntityManager.Inst.IsMyPlaceDone && EntityManager.Inst.IsOtherPlaceDone)
+            {
+                TurnManager.Inst.OnSetupDone();
+            }
+            else
+            {
+                CardManager.Inst.ShowWarning("아직 배치가 끝나지 않았습니다.\n6장의 카드를 모두 배치해 주세요.");
+            }
         }
-        else if (TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading)
+        else if (TurnManager.Inst.myTurn)
         {
             TurnManager.Inst.EndTurn();
         }
     }
 
-    // 활성/비활성 외형 갱신
+    // 활성/비활성 외형 갱신 (클릭 자체는 항상 허용 — interactable은 건드리지 않는다)
     private void SetActiveLook(bool isActive)
     {
-        _image.sprite        = isActive ? _activeSprite : _inactiveSprite;
-        _button.interactable = isActive;
-        _btnText.color       = isActive ? ActiveTextColor : InactiveTextColor;
+        _image.sprite  = isActive ? _activeSprite : _inactiveSprite;
+        _btnText.color = isActive ? ActiveTextColor : InactiveTextColor;
     }
 
     // 버튼 렌더·레이캐스트 표시 여부 (이미지/텍스트 끄면 클릭도 통과)
