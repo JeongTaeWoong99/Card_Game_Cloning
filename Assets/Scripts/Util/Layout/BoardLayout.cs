@@ -5,14 +5,14 @@ using UnityEngine;
 // 위치 상수는 기준값이며, 세부 좌표는 에디터에서 화면에 맞게 튜닝한다.
 public static class BoardLayout
 {
-    private const float MyFrontY    = -5f;    // 내 앞줄(공개) y
-    private const float MyBackY     = -14f;   // 내 뒷줄(대기) y
-    private const float OtherFrontY =  5f;    // 상대 앞줄(공개) y
-    private const float OtherBackY  =  14f;   // 상대 뒷줄(대기) y
+    private const float MyFrontY    = -6f;     // 내 앞줄(공개) y
+    private const float MyBackY     = -15f;    // 내 뒷줄(대기) y
+    private const float OtherFrontY =  6f;     // 상대 앞줄(공개) y
+    private const float OtherBackY  =  15f;    // 상대 뒷줄(대기) y
     
-    private const float MyRowSplitY = -9.5f;  // 내 앞줄/뒷줄 구분 기준 y (MyFrontY와 MyBackY의 중간)
+    private const float MyRowSplitY = -10.5f;  // 내 앞줄/뒷줄 구분 기준 y (MyFrontY와 MyBackY의 중간)
     
-    private const float SlotSpacing =  7f;    // 슬롯 간 가로 간격
+    private const float SlotSpacing =  7f;     // 슬롯 간 가로 간격
     
     // 내 진영에서 드롭 y가 앞줄(공개)인지 뒷줄(대기)인지 판정한다 (배치 입력용)
     public static bool IsMyFrontRow(float y)
