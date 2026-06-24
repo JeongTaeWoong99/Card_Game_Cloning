@@ -290,9 +290,12 @@ public class Entity : MonoBehaviour
         }
     }
 
-    // 손 뗌 — 공격 실행 판정 (Unity 마우스 메시지)
+    // 손 뗌 — 미리보기 해제 + 공격 실행 판정 (Unity 마우스 메시지)
     private void OnMouseUp()
     {
+        // 손가락을 떼면(터치) 확대 미리보기를 해제한다 — OnMouseExit가 터치 릴리스에서 호출되지 않는 문제 대응
+        CardManager.Inst.HideFieldPreview(this);
+
         if (isMine && !isEmpty)
         {
             EntityManager.Inst.EntityMouseUp();

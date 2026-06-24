@@ -184,6 +184,13 @@ public class CardManager : MonoBehaviour
             TryPutCard(true, isFrontRow);
         }
 
+        // 손가락을 떼면(터치) 배치되지 않고 손패에 남은 카드는 확대를 해제해 손패 모습으로 되돌린다
+        // (OnMouseExit가 터치 릴리스에서는 호출되지 않으므로 여기서 직접 처리)
+        if (_selectCard != null)
+        {
+            EnlargeCard(false, _selectCard);
+        }
+
         HidePlaceGuide(); // 드롭하면 안내 숨김
     }
 
@@ -696,6 +703,9 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     {
         if (!_isMySkillCardDrag)
         {
+            // 드래그가 시작되지 않았어도(마나 부족 등) 손가락을 떼면 확대를 해제한다 (터치 릴리스)
+            EnlargeSkillCard(false, card);
+
             return;
         }
 

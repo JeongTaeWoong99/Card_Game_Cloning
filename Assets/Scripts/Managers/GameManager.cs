@@ -22,9 +22,10 @@ public class GameManager : MonoBehaviour
     [SerializeField] private CameraEffect _cameraEffect;
 
     [CenterHeader("< 게임플레이 HUD >")] // 타이틀·게임오버 동안 숨기고 세팅 시작 시 켜는 묶음
-    [SerializeField] private GameObject _endTurnBtn;  // ActionBtn
-    [SerializeField] private GameObject _myManaBar;
-    [SerializeField] private GameObject _otherManaBar;
+    [SerializeField] private GameObject   _endTurnBtn;  // ActionBtn
+    [SerializeField] private GameObject   _myManaBar;
+    [SerializeField] private GameObject   _otherManaBar;
+    [SerializeField] private GameObject[] _inGameMenuButtons; // 게임 중 종료·다시·메인메뉴 (HUD와 함께 토글)
 
     private const string BlurIntensityId = "_BlurIntensity"; // 전체화면 블러 RenderFeature 글로벌 강도
     private const float  BlurTarget      = 1f;               // 게임오버 시 블러 목표 강도
@@ -97,6 +98,15 @@ public class GameManager : MonoBehaviour
         _endTurnBtn.SetActive(isActive);
         _myManaBar.SetActive(isActive);
         _otherManaBar.SetActive(isActive);
+
+        // 게임 중 종료·다시·메인메뉴 버튼도 액션버튼·마나바와 동일하게 함께 토글한다
+        foreach (GameObject button in _inGameMenuButtons)
+        {
+            if (button != null)
+            {
+                button.SetActive(isActive);
+            }
+        }
     }
 
     #endregion
