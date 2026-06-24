@@ -1,13 +1,13 @@
 using System;
 using UnityEngine;
 
-// 양 진영의 마나 상태와 규칙을 소유한다. 턴 시작 시 +1, 최대 10.
+// 양 진영의 마나 상태와 규칙을 소유한다. 턴 시작 시 +1, 최대 3.
 // 스킬 시전 시 마나를 차감하며, 변동은 이벤트로 ManaUI에 알린다 (Observer).
 public class ManaManager : MonoBehaviour
 {
     public static ManaManager Inst { get; private set; }
 
-    public const int MaxMana = 10; // 마나 상한 (UI 칸 수와 동일)
+    public const int MaxMana = 3; // 마나 상한 (UI 슬롯 수와 동일)
 
     private const int ManaPerTurn = 1; // 턴 시작 시 회복량
 
@@ -30,7 +30,7 @@ public class ManaManager : MonoBehaviour
         return isMine ? MyMana : OtherMana;
     }
 
-    // 턴 시작 시 해당 진영 마나를 +1 회복한다 (상한 10) (TurnManager.StartTurnCo가 호출)
+    // 턴 시작 시 해당 진영 마나를 +1 회복한다 (상한 MaxMana) (TurnManager.StartTurnCo가 호출)
     public void GainMana(bool isMine)
     {
         if (isMine)
