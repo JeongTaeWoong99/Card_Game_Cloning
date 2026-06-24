@@ -16,7 +16,8 @@ public class CombatSystem : MonoBehaviour
     private const int   VampireHealAmount = 3;    // 흡혈형이 공격 시 회복하는 고정량
 
     [CenterHeader("< 참조 >")]
-    [SerializeField] private GameObject _damagePrefab;
+    [SerializeField] private GameObject _damagePrefab; // 피해 -N 팝업
+    [SerializeField] private GameObject _healPrefab;   // 회복·버프 +N 팝업 (색·크기 별도)
     [SerializeField] private GameObject _arrowPrefab;
 
     // 싱글톤 등록 (Unity 메시지)
@@ -216,6 +217,19 @@ public class CombatSystem : MonoBehaviour
         SpawnDamage(damage, target);
     }
 
+    // HP 증가 팝업(+N) — 힐 전용 프리팹으로 띄운다(색·크기는 프리팹이 결정) (Entity.Heal/BuffHp가 호출)
+    public void ShowHealPopup(int amount, Transform target)
+    {
+        if (_healPrefab == null || amount <= 0)
+        {
+            return;
+        }
+
+        var popup = Instantiate(_healPrefab).GetComponent<NumberPopup>();
+        popup.SetupTransform(target);
+        popup.Healed(amount);
+    }
+
     // 데미지가 0 이하면 팝업을 만들지 않는다 (반격 없는 공격 등)
     private void SpawnDamage(int damage, Transform target)
     {
@@ -224,9 +238,9 @@ public class CombatSystem : MonoBehaviour
             return;
         }
 
-        var damageComponent = Instantiate(_damagePrefab).GetComponent<Damage>();
-        damageComponent.SetupTransform(target);
-        damageComponent.Damaged(damage);
+        var popup = Instantiate(_damagePrefab).GetComponent<NumberPopup>();
+        popup.SetupTransform(target);
+        popup.Damaged(damage);
     }
 
     #endregion

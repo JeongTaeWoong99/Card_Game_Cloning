@@ -32,26 +32,33 @@ public class Order : MonoBehaviour
     {
         int sortingOrder = order * OrderMultiplier;
 
+        // 뒤에서도 순서가 나뉘도록...
+        int count = 0;
+        
         foreach (Renderer renderer in _backRenderers)
         {
+            count++;
+            
             if (renderer == null) // 인스펙터 미할당(빈 슬롯) 방어
             {
                 continue;
             }
 
             renderer.sortingLayerName = _sortingLayerName;
-            renderer.sortingOrder     = sortingOrder;
+            renderer.sortingOrder     = sortingOrder + count;
         }
 
         foreach (Renderer renderer in _middleRenderers)
         {
+            count++;
+            
             if (renderer == null) // 인스펙터 미할당(빈 슬롯) 방어
             {
                 continue;
             }
 
             renderer.sortingLayerName = _sortingLayerName;
-            renderer.sortingOrder     = sortingOrder + 1;
+            renderer.sortingOrder     = sortingOrder + count;
         }
     }
 }

@@ -366,7 +366,7 @@ public class EntityManager : MonoBehaviour
             }
             else
             {
-                CardManager.Inst.ShowWarning("원거리를 제외한 타입은 도발(방패) 대상만 공격할 수 있습니다");
+                CardManager.Inst.ShowWarning("전방에 도발(방패) 타입이 있으면 먼저 처치해야 다른 적을 공격할 수 있습니다.\n(원거리 타입은 도발을 무시하고 모든 적을 공격할 수 있습니다.)");
             }
         }
 
@@ -539,7 +539,11 @@ public class EntityManager : MonoBehaviour
                 continue;
             }
 
-            if (TriggerBackEffect(isMine, card))
+            if (card.CardType == ECardType.Healer) // 힐러는 틱마다 텀을 둬 +N 팝업이 겹치지 않게 한다
+            {
+                yield return HealTicksCo(isMine, card, BackHealerTicks);
+            }
+            else if (TriggerBackEffect(isMine, card))
             {
                 yield return _backEffectDelay;
             }
@@ -572,14 +576,7 @@ public class EntityManager : MonoBehaviour
 
                 return true;
 
-            case ECardType.Healer: // 지속 — 회복 가능한 다른 전방 아군을 1씩 여러 번 회복
-                bool healed = false;
-                for (int i = 0; i < BackHealerTicks; i++)
-                {
-                    healed |= TryHealFront(isMine, card);
-                }
-
-                return healed;
+            // Healer — 다중 틱이라 텀이 필요해 ProcessBackRowCo에서 HealTicksCo로 따로 처리한다
 
             default: // Normal — 후방 효과 없음
                 return false;
@@ -598,15 +595,21 @@ public class EntityManager : MonoBehaviour
                 continue;
             }
 
-            for (int tick = 0; tick < FrontHealerTicks; tick++)
-            {
-                if (!TryHealFront(isMine, healer)) // 회복할 대상이 없으면 조기 종료
-                {
-                    break;
-                }
+            yield return HealTicksCo(isMine, healer, FrontHealerTicks);
+        }
+    }
 
-                yield return _backEffectDelay;
+    // 힐러가 회복 가능한 다른 전방 아군을 1씩 ticks회 회복한다. 한 틱마다 텀을 둬 +N 팝업이 겹치지 않게 한다 (전·후방 공통)
+    private IEnumerator HealTicksCo(bool isMine, Entity healer, int ticks)
+    {
+        for (int tick = 0; tick < ticks; tick++)
+        {
+            if (!TryHealFront(isMine, healer)) // 회복할 대상이 없으면 조기 종료
+            {
+                yield break;
             }
+
+            yield return _backEffectDelay;
         }
     }
 

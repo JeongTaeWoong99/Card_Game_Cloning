@@ -42,7 +42,7 @@ public class Entity : MonoBehaviour
     // 한시 버프 목록 (영구 버프는 만료가 없으므로 등록하지 않는다)
     private readonly List<ActiveBuff> _activeBuffs = new();
 
-    private static readonly Color BuffHealthColor = Color.red; // 버프(health > maxHealth) 상태 표시
+    private static readonly Color BuffHealthColor = Color.red; // HP > maxHealth일 때 빨간 텍스트, 아니면 기본(흰색)
 
     // 만료를 추적할 한시 버프 1건 — 적용한 수치와 남은 자기 턴 수를 기억한다
     private struct ActiveBuff
@@ -180,8 +180,11 @@ public class Entity : MonoBehaviour
             return;
         }
 
+        int before = health;
         health = Mathf.Min(health + amount, _maxHealth);
         RefreshHealthText();
+
+        ShowFloatingHp(health - before); // 실제 회복량을 +N 팝업으로 표시
     }
 
     // HP를 버프한다 — 최대치를 초과할 수 있다(= 공격력 증가, 빨간 텍스트) (버프 스킬이 호출)
@@ -197,6 +200,19 @@ public class Entity : MonoBehaviour
         }
 
         RefreshHealthText();
+
+        ShowFloatingHp(amount); // 버프 증가량을 +N 팝업으로 표시 (초과 여부는 정적 HP 색이 표현)
+    }
+
+    // HP 증가량을 '+N' 힐 팝업으로 띄운다 — 앞면 공개 카드 한정, 증가량이 있을 때만
+    private void ShowFloatingHp(int amount)
+    {
+        if (!_isFront || amount <= 0)
+        {
+            return;
+        }
+
+        CombatSystem.Inst.ShowHealPopup(amount, transform);
     }
 
     // 자기 턴 종료 시 호출 — 한시 버프의 남은 턴을 1 줄이고, 0이 된 버프는 HP에서 되돌린다
