@@ -13,102 +13,113 @@ MonoBehaviour:
   m_Name: SkillSO
   m_EditorClassIdentifier: Assembly-CSharp::SkillSO
   skills:
-  - name: "화염구"
+  - name: "\uD654\uC5FC\uAD6C"
     effect: 0
     targeting: 0
     manaCost: 2
     value: 2
     buffDuration: 0
-    description: "무작위 적 전방 1체에 2의 피해를 준다."
+    description: "\uBB34\uC791\uC704 \uC801 \uC804\uBC29 1\uCCB4\uC5D0 2\uC758 \uD53C\uD574\uB97C
+      \uC900\uB2E4."
     sprite: {fileID: 21300000, guid: eb7498121966d674ba649004ee23e60a, type: 3}
     percent: 30
-  - name: "치유의 빛"
+  - name: "\uCE58\uC720\uC758 \uBE5B"
     effect: 1
     targeting: 0
     manaCost: 2
     value: 1
     buffDuration: 0
-    description: "아군 전방 전체의 HP를 1씩 회복한다. 최대 HP를 넘지 않는다."
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 1\uC529 \uD68C\uBCF5\uD55C\uB2E4.
+      \uCD5C\uB300 HP\uB97C \uB118\uC9C0 \uC54A\uB294\uB2E4."
     sprite: {fileID: 21300000, guid: cfed6e31b795af448844d979b54d4af8, type: 3}
     percent: 25
-  - name: "전열 강화"
+  - name: "\uC804\uC5F4 \uAC15\uD654"
     effect: 2
     targeting: 0
     manaCost: 2
     value: 1
     buffDuration: 1
-    description: "아군 전방 전체의 HP를 1씩 올린다. 이번 내 턴이 끝나면 사라진다."
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 1\uC529 \uC62C\uB9B0\uB2E4.
+      \uC774\uBC88 \uB0B4 \uD134\uC774 \uB05D\uB098\uBA74 \uC0AC\uB77C\uC9C4\uB2E4."
     sprite: {fileID: 21300000, guid: 809f0eb7ea574934b87b6fe79efaf70f, type: 3}
     percent: 20
-  - name: "집중 강화"
+  - name: "\uC9D1\uC911 \uAC15\uD654"
     effect: 3
     targeting: 1
     manaCost: 2
     value: 3
     buffDuration: 1
-    description: "선택한 아군 1체의 HP를 3 올린다. 이번 내 턴이 끝나면 사라진다."
+    description: "\uC120\uD0DD\uD55C \uC544\uAD70 1\uCCB4\uC758 HP\uB97C 3 \uC62C\uB9B0\uB2E4.
+      \uC774\uBC88 \uB0B4 \uD134\uC774 \uB05D\uB098\uBA74 \uC0AC\uB77C\uC9C4\uB2E4."
     sprite: {fileID: 21300000, guid: a6ddcd9b963e2c44d9eb384e5ef9606f, type: 3}
     percent: 25
-  - name: "영구 각성"
+  - name: "\uC601\uAD6C \uAC01\uC131"
     effect: 3
     targeting: 1
     manaCost: 3
     value: 2
     buffDuration: 0
-    description: "선택한 아군 1체의 HP를 2 영구히 올린다."
+    description: "\uC120\uD0DD\uD55C \uC544\uAD70 1\uCCB4\uC758 HP\uB97C 2 \uC601\uAD6C\uD788
+      \uC62C\uB9B0\uB2E4."
     sprite: {fileID: 21300000, guid: 71da1bdd05775424e95900fee42fb502, type: 3}
     percent: 15
-  - name: "지속 강화"
+  - name: "\uC9C0\uC18D \uAC15\uD654"
     effect: 2
     targeting: 0
     manaCost: 3
     value: 2
     buffDuration: 2
-    description: "아군 전방 전체의 HP를 2씩 올린다. 내 턴 2회 동안 유지된다."
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 2\uC529 \uC62C\uB9B0\uB2E4.
+      \uB0B4 \uD134 2\uD68C \uB3D9\uC548 \uC720\uC9C0\uB41C\uB2E4."
     sprite: {fileID: 21300000, guid: badb9bd153c4eb04c9544ef2d91731f0, type: 3}
     percent: 10
-  - name: "불씨"
+  - name: "\uBD88\uC528"
     effect: 0
     targeting: 0
     manaCost: 1
     value: 1
     buffDuration: 0
-    description: "무작위 적 전방 1체에 1의 피해를 준다."
+    description: "\uBB34\uC791\uC704 \uC801 \uC804\uBC29 1\uCCB4\uC5D0 1\uC758 \uD53C\uD574\uB97C
+      \uC900\uB2E4."
     sprite: {fileID: 21300000, guid: 8886dcf994c7de14abd69d66e7914066, type: 3}
     percent: 20
-  - name: "응급처치"
+  - name: "\uC751\uAE09\uCC98\uCE58"
     effect: 1
     targeting: 0
     manaCost: 1
     value: 1
     buffDuration: 0
-    description: "아군 전방 전체의 HP를 1씩 회복한다. 최대 HP를 넘지 않는다."
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 1\uC529 \uD68C\uBCF5\uD55C\uB2E4.
+      \uCD5C\uB300 HP\uB97C \uB118\uC9C0 \uC54A\uB294\uB2E4."
     sprite: {fileID: 21300000, guid: 6bb202c82cfaadb48ad2f68bab79be3c, type: 3}
     percent: 18
-  - name: "대화염"
+  - name: "\uB300\uD654\uC5FC"
     effect: 0
     targeting: 0
     manaCost: 3
     value: 4
     buffDuration: 0
-    description: "무작위 적 전방 1체에 4의 피해를 준다."
-    sprite: {fileID: 21300000, guid: 5b6ecd6eeb0baa7408f5f3d83cd1616d, type: 3}
+    description: "\uBB34\uC791\uC704 \uC801 \uC804\uBC29 1\uCCB4\uC5D0 4\uC758 \uD53C\uD574\uB97C
+      \uC900\uB2E4."
+    sprite: {fileID: 21300000, guid: cdb944d868bab5f4da7dc993f27bd5fa, type: 3}
     percent: 8
-  - name: "대치유"
+  - name: "\uB300\uCE58\uC720"
     effect: 1
     targeting: 0
     manaCost: 3
     value: 3
     buffDuration: 0
-    description: "아군 전방 전체의 HP를 3씩 회복한다. 최대 HP를 넘지 않는다."
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 3\uC529 \uD68C\uBCF5\uD55C\uB2E4.
+      \uCD5C\uB300 HP\uB97C \uB118\uC9C0 \uC54A\uB294\uB2E4."
     sprite: {fileID: 21300000, guid: 2fae89b37181f954fbd833f132da0ab0, type: 3}
     percent: 8
-  - name: "전군 각성"
+  - name: "\uC804\uAD70 \uAC01\uC131"
     effect: 2
     targeting: 0
     manaCost: 3
     value: 3
     buffDuration: 0
-    description: "아군 전방 전체의 HP를 3씩 영구히 올린다."
-    sprite: {fileID: 21300000, guid: 4eef179223062634ab0ea4f74509a288, type: 3}
+    description: "\uC544\uAD70 \uC804\uBC29 \uC804\uCCB4\uC758 HP\uB97C 3\uC529 \uC601\uAD6C\uD788
+      \uC62C\uB9B0\uB2E4."
+    sprite: {fileID: 21300000, guid: 5d2f1f810fd5f8e48b4670aa090559ef, type: 3}
     percent: 6
