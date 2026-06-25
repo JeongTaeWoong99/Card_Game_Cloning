@@ -9,10 +9,8 @@ using Random = UnityEngine.Random;
 // 손패(아직 전장에 놓이지 않은 카드)의 상태·입력·정렬을 담당한다.
 // Setup 페이즈: 엔티티 카드 6장을 드래그해 앞줄/뒷줄에 배치한다(마우스 y로 행 판정).
 // Battle 페이즈: 스킬 카드를 드로우·발동(마나 소모)하고, 대상 O 스킬의 대상 선택을 처리한다.
-public class CardManager : MonoBehaviour
+public class CardManager : MonoService<ICardManager>, ICardManager
 {
-    public static CardManager Inst { get; private set; }
-
     private enum ECardState { Nothing, CanMouseOver, CanMouseDrag }
 
     private const float DragSkillCardScale = 1.2f;  // 드래그 중 스킬 카드 축소 스케일 (손패 1.9보다 작게)
@@ -86,14 +84,13 @@ public class CardManager : MonoBehaviour
     private readonly WaitForSeconds _skillExitDelay = new(SkillExitTime); // 스킬 연출 카드 퇴장 대기
 
     // 내 전투 턴 + 로딩 중이 아닐 때 스킬 발동 가능
-    private bool CanPlaySkill => TurnManager.Inst.IsBattlePhase && TurnManager.Inst.myTurn
-                                 && !TurnManager.Inst.isLoading;
-
-
-    // 싱글톤 등록 (Unity 메시지)
-    private void Awake()
+    private bool CanPlaySkill
     {
-        Inst = this;
+        get
+        {
+            var turn = Services.Get<ITurnManager>();
+            return turn.IsBattlePhase && turn.myTurn && !turn.isLoading;
+        }
     }
 
     // 덱 생성 + 카드 분배 이벤트 구독 (Unity 메시지)
@@ -111,8 +108,9 @@ public class CardManager : MonoBehaviour
     }
 
     // 이벤트 구독 해제 (Unity 메시지)
-    private void OnDestroy()
+    protected override void OnDestroy()
     {
+        base.OnDestroy();
         TurnManager.OnAddCard -= AddCard;
     }
 
@@ -144,7 +142,12 @@ public class CardManager : MonoBehaviour
         }
 
         _selectCard = card;
-        EnlargeCard(true, card);
+
+        // press 기반: 포인터를 누르고 있는 동안에만 확대 (터치 릴리스 후 얼어붙은 포인터로 확대가 잔존하는 문제 방지)
+        if (Input.GetMouseButton(0))
+        {
+            EnlargeCard(true, card);
+        }
     }
 
     // 카드에서 마우스 이탈 — 원위치 (Card.OnMouseExit가 호출)
@@ -176,7 +179,7 @@ public class CardManager : MonoBehaviour
 
         if (_onMyCardArea)
         {
-            EntityManager.Inst.RemoveMyEmptyEntity();
+            Services.Get<IBoardPlacement>().RemoveMyEmptyEntity();
         }
         else
         {
@@ -205,7 +208,7 @@ public class CardManager : MonoBehaviour
         if (!_onMyCardArea)
         {
             _selectCard.MoveTransform(new PRS(Utils.MousePos, Utils.QI, _selectCard.originPRS.scale), false);
-            EntityManager.Inst.InsertMyEmptyEntity(Utils.MousePos.x, Utils.MousePos.y);
+            Services.Get<IBoardPlacement>().InsertMyEmptyEntity(Utils.MousePos.x, Utils.MousePos.y);
             ShowPlaceGuide(BoardLayout.IsMyFrontRow(Utils.MousePos.y)); // 배치 영역 포커스 + 역할 안내
         }
         else
@@ -247,11 +250,11 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     // 로딩 중엔 입력 차단, Setup 페이즈에 손패가 남아 있으면 드래그 배치 허용, 그 외엔 확대만
     private void SetECardState()
     {
-        if (TurnManager.Inst.isLoading)
+        if (Services.Get<ITurnManager>().isLoading)
         {
             _cardState = ECardState.Nothing;
         }
-        else if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup && _myCards.Count > 0)
+        else if (Services.Get<ITurnManager>().IsSetupPhase && _myCards.Count > 0)
         {
             _cardState = ECardState.CanMouseDrag;
         }
@@ -283,7 +286,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         var spawnPos    = isMine ? Utils.MousePos : _otherCardSpawnPoint.position;
         var targetCards = isMine ? _myCards       : _otherCards;
 
-        if (EntityManager.Inst.SpawnEntity(isMine, card.item, isFrontRow, spawnPos))
+        if (Services.Get<IBoardPlacement>().SpawnEntity(isMine, card.item, isFrontRow, spawnPos))
         {
             targetCards.Remove(card);
             card.transform.DOKill();
@@ -401,16 +404,16 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     // 치트 — 세팅 단계에서 내 손패 전부를 앞줄 우선으로 자동 배치한다 (GameManager 치트키가 호출)
     public void CheatAutoPlaceMyCards()
     {
-        if (TurnManager.Inst.phase != TurnManager.EGamePhase.Setup)
+        if (!Services.Get<ITurnManager>().IsSetupPhase)
         {
             return;
         }
 
-        EntityManager.Inst.RemoveMyEmptyEntity(); // 드래그 미리보기 정리
+        Services.Get<IBoardPlacement>().RemoveMyEmptyEntity(); // 드래그 미리보기 정리
 
         foreach (Card card in new List<Card>(_myCards))
         {
-            if (!EntityManager.Inst.CheatPlaceMyCard(card.item))
+            if (!Services.Get<IBoardPlacement>().CheatPlaceMyCard(card.item))
             {
                 continue;
             }
@@ -432,8 +435,9 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     // (Entity.OnMouseOver가 호출)
     public void ShowFieldPreview(Entity entity)
     {
-        // 드래그 중·빈 슬롯·공격 타겟팅 중이면 호버 미리보기를 띄우지 않는다(딜 예측과 겹침 방지)
-        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty || EntityManager.Inst.IsSelectingAttacker)
+        // 드래그 중·빈 슬롯·공격 타겟팅 중이거나, 포인터를 누르고 있지 않으면 미리보기를 띄우지 않는다
+        // (press 기반 — 터치 릴리스 후 얼어붙은 포인터로 상대 엔티티 미리보기가 잔존하는 문제 방지)
+        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty || !Input.GetMouseButton(0) || Services.Get<IBoardInput>().IsSelectingAttacker)
         {
             return;
         }
@@ -564,7 +568,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         }
         _previewSourceEntity = null;
 
-        var (dealt, counter) = CombatSystem.Inst.PredictDamage(attacker, defender);
+        var (dealt, counter) = Services.Get<ICombatSystem>().PredictDamage(attacker, defender);
 
         _damagePreview.SetActive(true);
         SetPreviewCard(ref _dealtPreviewCard, _previewMyCardPoint,    attacker.Item, attacker.health);
@@ -626,7 +630,8 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     // 스킬 카드에 마우스 진입 — 드래그 중이 아니면 확대 (SkillCard.OnMouseOver가 호출)
     public void SkillCardMouseOver(SkillCard card)
     {
-        if (!CanPlaySkill || _isMySkillCardDrag)
+        // press 기반: 누르고 있을 때만 확대 (터치 릴리스 후 얼어붙은 포인터로 확대가 잔존하는 문제 방지)
+        if (!CanPlaySkill || _isMySkillCardDrag || !Input.GetMouseButton(0))
         {
             return;
         }
@@ -653,7 +658,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
             return;
         }
 
-        if (!ManaManager.Inst.CanAfford(true, card.skill.manaCost))
+        if (!Services.Get<IManaManager>().CanAfford(true, card.skill.manaCost))
         {
             ShowWarning("마나가 부족합니다");
 
@@ -680,14 +685,14 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
 
             if (isTargeting)
             {
-                EntityManager.Inst.ConsumeSkillTarget(); // 타겟 피커 해제
+                Services.Get<IBoardInput>().ConsumeSkillTarget(); // 타겟 피커 해제
             }
 
             return;
         }
 
         // 대상 O: 유효 타겟 위에서만 카드를 숨기고 타겟팅 UI로 안내. 그 전까지는 논타겟처럼 축소 상태로 따라온다
-        bool hideForTarget = isTargeting && EntityManager.Inst.PickSkillTarget(Utils.MousePos);
+        bool hideForTarget = isTargeting && Services.Get<IBoardInput>().PickSkillTarget(Utils.MousePos);
 
         _selectSkillCard.SetVisible(!hideForTarget);
 
@@ -722,7 +727,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         else if (skill.targeting == ESkillTargeting.None)
         {
             // 논타겟: 영역 밖에서 놓으면 발동 (마나 재확인). 카드를 치우고 발동 연출 후 효과 적용
-            if (ManaManager.Inst.TrySpend(true, skill.manaCost))
+            if (Services.Get<IManaManager>().TrySpend(true, skill.manaCost))
             {
                 DiscardSkillCard(true, card);
                 StartCoroutine(PlaySkillCo(skill, true, null));
@@ -735,8 +740,8 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         else
         {
             // 대상 O: 유효한 내 앞줄 엔티티 위에서 놓으면 발동
-            Entity target = EntityManager.Inst.ConsumeSkillTarget();
-            if (target != null && ManaManager.Inst.TrySpend(true, skill.manaCost))
+            Entity target = Services.Get<IBoardInput>().ConsumeSkillTarget();
+            if (target != null && Services.Get<IManaManager>().TrySpend(true, skill.manaCost))
             {
                 DiscardSkillCard(true, card);
                 StartCoroutine(PlaySkillCo(skill, true, target));
@@ -762,8 +767,8 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     {
         // 마나 충분 + (대상 O면 시전할 아군 전방이 존재)하는 카드만 후보
         var castable = _otherSkillCards.FindAll(card =>
-            ManaManager.Inst.CanAfford(false, card.skill.manaCost) &&
-            (card.skill.targeting == ESkillTargeting.None || EntityManager.Inst.GetRandomFront(false) != null));
+            Services.Get<IManaManager>().CanAfford(false, card.skill.manaCost) &&
+            (card.skill.targeting == ESkillTargeting.None || Services.Get<IBoardState>().GetRandomFront(false) != null));
 
         if (castable.Count == 0)
         {
@@ -774,10 +779,10 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         Skill skill = card.skill;
 
         Entity target = skill.targeting == ESkillTargeting.MyEntity
-            ? EntityManager.Inst.GetRandomFront(false) // 상대 입장의 아군 전방
+            ? Services.Get<IBoardState>().GetRandomFront(false) // 상대 입장의 아군 전방
             : null;
 
-        ManaManager.Inst.TrySpend(false, skill.manaCost);
+        Services.Get<IManaManager>().TrySpend(false, skill.manaCost);
         DiscardSkillCard(false, card);
         StartCoroutine(PlaySkillCo(skill, false, target)); // 손패에서 치우되, 연출로 어떤 스킬인지 보여준 뒤 발동
 
@@ -789,7 +794,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     {
         if (_skillCastPoint == null) // 연출 위치 미할당 시 곧바로 발동
         {
-            SkillSystem.Inst.Cast(skill, isMine, target);
+            Services.Get<ISkillSystem>().Cast(skill, isMine, target);
 
             yield break;
         }
@@ -810,7 +815,7 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
         yield return _skillExitDelay;
         Destroy(presented.gameObject);
 
-        SkillSystem.Inst.Cast(skill, isMine, target); // 카드가 사라진 뒤 효과 적용
+        Services.Get<ISkillSystem>().Cast(skill, isMine, target); // 카드가 사라진 뒤 효과 적용
     }
 
     // 스킬 카드를 손패에서 제거·파괴하고 재정렬한다

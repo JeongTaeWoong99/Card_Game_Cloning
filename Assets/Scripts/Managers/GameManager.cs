@@ -4,10 +4,8 @@ using UnityEngine.SceneManagement;
 using DG.Tweening;
 
 // 게임 흐름의 최상위: 프레임 고정, UI 패널 제어, 승패 판정, 게임오버 연출, 치트.
-public class GameManager : MonoBehaviour
+public class GameManager : MonoService<IGameFlow>, IGameFlow
 {
-    public static GameManager Inst { get; private set; }
-
     [CenterHeader("< 치트 >")]
     [Multiline(10)]
     [SerializeField] private string _cheatInfo;
@@ -38,10 +36,10 @@ public class GameManager : MonoBehaviour
     private static bool _autoStart;  // 씬 재로드 후 자동 게임 시작 여부 (다시하기)
 
 
-    // 싱글톤 등록 + 프레임 고정 (Unity 메시지)
-    private void Awake()
+    // 서비스 등록(베이스) + 프레임 고정 (Unity 메시지)
+    protected override void Awake()
     {
-        Inst = this;
+        base.Awake();
 
         // 모바일 제출 기준 60프레임 고정 (vSync가 켜져 있으면 targetFrameRate가 무시되므로 끈다)
         QualitySettings.vSyncCount  = 0;
@@ -78,7 +76,7 @@ public class GameManager : MonoBehaviour
     public void StartGame()
     {
         SetGameplayHudActive(true); // 디졸브 후 세팅 로직이 시작되는 시점에 HUD 노출
-        StartCoroutine(TurnManager.Inst.StartGameCo());
+        StartCoroutine(Services.Get<ITurnManager>().StartGameCo());
     }
 
     // 시작 UI 초기 세팅
@@ -159,11 +157,11 @@ public class GameManager : MonoBehaviour
     {
         yield return _resultCheckDelay;
 
-        if (EntityManager.Inst.IsMyAllDead)         // 내 카드 전멸 → 패배
+        if (Services.Get<IBoardState>().IsMyAllDead)         // 내 카드 전멸 → 패배
         {
             StartCoroutine(GameOver(false));
         }
-        else if (EntityManager.Inst.IsOtherAllDead) // 상대 카드 전멸 → 승리
+        else if (Services.Get<IBoardState>().IsOtherAllDead) // 상대 카드 전멸 → 승리
         {
             StartCoroutine(GameOver(true));
         }
@@ -182,7 +180,7 @@ public class GameManager : MonoBehaviour
         }
         _isGameOver = true;
 
-        TurnManager.Inst.isLoading = true;
+        Services.Get<ITurnManager>().isLoading = true;
         SetGameplayHudActive(false); // 턴종료 버튼 + 양쪽 마나바 숨김
 
         yield return _gameOverDelay;
@@ -216,26 +214,26 @@ public class GameManager : MonoBehaviour
         // 3. 턴 종료
         if (CheatKeyDown(KeyCode.Alpha3, KeyCode.Keypad3))
         {
-            TurnManager.Inst.EndTurn();
+            Services.Get<ITurnManager>().EndTurn();
         }
 
         // 4. 내 마나 최대치(10) 충전
         if (CheatKeyDown(KeyCode.Alpha4, KeyCode.Keypad4))
         {
-            ManaManager.Inst.FillMana(true);
+            Services.Get<IManaManager>().FillMana(true);
         }
 
         // 5. 세팅 단계 — 내 손패 전부 자동 배치
         if (CheatKeyDown(KeyCode.Alpha5, KeyCode.Keypad5))
         {
-            CardManager.Inst.CheatAutoPlaceMyCards();
+            Services.Get<ICardManager>().CheatAutoPlaceMyCards();
         }
     }
 
     // 해당 진영 앞줄의 첫 카드를 즉사시키고 제거·승격·승패 판정을 진행한다 (치트용)
     private void KillFrontFirst(bool isMine)
     {
-        var frontList = isMine ? EntityManager.Inst.MyFront : EntityManager.Inst.OtherFront;
+        var frontList = isMine ? Services.Get<IBoardState>().MyFront : Services.Get<IBoardState>().OtherFront;
         if (frontList.Count == 0)
         {
             return;
@@ -243,7 +241,7 @@ public class GameManager : MonoBehaviour
 
         var target = frontList[0];
         target.Damaged(9999);
-        EntityManager.Inst.RemoveDeadAndRealign(target);
+        Services.Get<IBoardState>().RemoveDeadAndRealign(target);
         CheckBattleResult();
     }
 

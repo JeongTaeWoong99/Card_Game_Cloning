@@ -92,7 +92,7 @@ public class SkillCard : MonoBehaviour
 
         if (_isFront)
         {
-            CardManager.Inst.SkillCardMouseOver(this);
+            Services.Get<ICardManager>().SkillCardMouseOver(this);
         }
     }
 
@@ -101,7 +101,7 @@ public class SkillCard : MonoBehaviour
     {
         if (_isFront)
         {
-            CardManager.Inst.SkillCardMouseExit(this);
+            Services.Get<ICardManager>().SkillCardMouseExit(this);
         }
     }
 
@@ -112,7 +112,7 @@ public class SkillCard : MonoBehaviour
 
         if (_isFront)
         {
-            CardManager.Inst.SkillCardMouseDown(this);
+            Services.Get<ICardManager>().SkillCardMouseDown(this);
         }
     }
 
@@ -121,7 +121,7 @@ public class SkillCard : MonoBehaviour
     {
         if (_isFront)
         {
-            CardManager.Inst.SkillCardMouseUp(this);
+            Services.Get<ICardManager>().SkillCardMouseUp(this);
         }
     }
 }

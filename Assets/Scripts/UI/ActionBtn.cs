@@ -27,22 +27,22 @@ public class ActionBtn : MonoBehaviour
     private void Update()
     {
         // 데미지 프리뷰가 떠 있으면 버튼이 앞을 가리지 않도록 숨긴다 (렌더·레이캐스트 모두 차단)
-        if (CardManager.Inst.IsDamagePreviewActive)
+        if (Services.Get<ICardManager>().IsDamagePreviewActive)
         {
             SetVisible(false);
             return;
         }
         SetVisible(true);
 
-        if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
+        if (Services.Get<ITurnManager>().IsSetupPhase)
         {
             _btnText.text = "세팅 완료";
-            SetActiveLook(EntityManager.Inst.IsMyPlaceDone && EntityManager.Inst.IsOtherPlaceDone);
+            SetActiveLook(Services.Get<IBoardPlacement>().IsMyPlaceDone && Services.Get<IBoardPlacement>().IsOtherPlaceDone);
         }
         else
         {
             _btnText.text = "턴 종료";
-            SetActiveLook(TurnManager.Inst.myTurn && !TurnManager.Inst.isLoading);
+            SetActiveLook(Services.Get<ITurnManager>().myTurn && !Services.Get<ITurnManager>().isLoading);
         }
     }
 
@@ -50,25 +50,25 @@ public class ActionBtn : MonoBehaviour
     // 버튼은 항상 클릭 가능하게 두고(비활성 외형만 표시), 실제 가능 여부는 여기서 판정한다.
     public void OnClick()
     {
-        if (TurnManager.Inst.isLoading) // 로딩 중 입력 무시
+        if (Services.Get<ITurnManager>().isLoading) // 로딩 중 입력 무시
         {
             return;
         }
 
-        if (TurnManager.Inst.phase == TurnManager.EGamePhase.Setup)
+        if (Services.Get<ITurnManager>().IsSetupPhase)
         {
-            if (EntityManager.Inst.IsMyPlaceDone && EntityManager.Inst.IsOtherPlaceDone)
+            if (Services.Get<IBoardPlacement>().IsMyPlaceDone && Services.Get<IBoardPlacement>().IsOtherPlaceDone)
             {
-                TurnManager.Inst.OnSetupDone();
+                Services.Get<ITurnManager>().OnSetupDone();
             }
             else
             {
-                CardManager.Inst.ShowWarning("아직 배치가 끝나지 않았습니다.\n6장의 카드를 모두 배치해 주세요.");
+                Services.Get<ICardManager>().ShowWarning("아직 배치가 끝나지 않았습니다.\n6장의 카드를 모두 배치해 주세요.");
             }
         }
-        else if (TurnManager.Inst.myTurn)
+        else if (Services.Get<ITurnManager>().myTurn)
         {
-            TurnManager.Inst.EndTurn();
+            Services.Get<ITurnManager>().EndTurn();
         }
     }
 

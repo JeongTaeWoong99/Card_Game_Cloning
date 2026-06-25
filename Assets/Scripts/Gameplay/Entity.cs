@@ -7,8 +7,6 @@ using DG.Tweening;
 // 앞줄(공개)은 전투에 참여하고, 뒷줄(대기)은 공격·피격이 불가하다.
 public class Entity : MonoBehaviour
 {
-    private const int ShieldDamageReduction = 2; // 방패형이 받는 피해에서 차감하는 고정값(최소 1 보장)
-
     [CenterHeader("< 데이터 >")]
     [SerializeField] private Item _item;
 
@@ -53,6 +51,9 @@ public class Entity : MonoBehaviour
 
     // 카드 속성 — CombatSystem이 공격 방식을 분기하는 데 사용 (다른 클래스가 호출)
     public ECardType CardType => _item.type;
+
+    // 타입별 행동(피해 경감·도발 규칙 등)을 위임받는 전략 객체
+    public ICardBehaviour Behaviour => CardBehaviours.Of(_item.type);
 
     // 카드 원본 데이터 — 필드 엔티티 호버 시 카드 형태 미리보기에 사용 (CardManager가 호출)
     public Item Item => _item;
@@ -144,15 +145,10 @@ public class Entity : MonoBehaviour
         _sleepParticle.SetActive(!isWaiting && _waitCount > 0);
     }
 
-    // 방패형이면 받는 피해에서 고정값을 차감한다(최소 1). 모든 피해 적용 직전 호출 (CombatSystem·SkillSystem이 호출)
+    // 받는 피해를 타입 행동에 위임해 가공한다(방패 경감 등). 모든 피해 적용 직전 호출 (CombatSystem·SkillSystem이 호출)
     public int ApplyDefense(int rawDamage)
     {
-        if (_item.type == ECardType.Shield)
-        {
-            return Mathf.Max(1, rawDamage - ShieldDamageReduction);
-        }
-
-        return rawDamage;
+        return Behaviour.ModifyIncomingDamage(rawDamage);
     }
 
     // 데미지를 적용하고 이번 피해로 사망했는지 반환한다
@@ -212,11 +208,11 @@ public class Entity : MonoBehaviour
             return;
         }
 
-        CombatSystem.Inst.ShowHealPopup(amount, transform);
+        Services.Get<ICombatSystem>().ShowHealPopup(amount, transform);
     }
 
     // 자기 턴 종료 시 호출 — 한시 버프의 남은 턴을 1 줄이고, 0이 된 버프는 HP에서 되돌린다
-    // (EntityManager.TickBuffs가 진영 단위로 호출)
+    // (Faction.TickBuffs가 진영 단위로 호출)
     public void TickBuffs()
     {
         for (int i = _activeBuffs.Count - 1; i >= 0; i--)
@@ -257,7 +253,7 @@ public class Entity : MonoBehaviour
     }
 
     // 자기 턴 시작 시 호출 — 대기시간을 1 줄이고 공격 가능 여부·잠자기 파티클을 갱신한다
-    // (EntityManager.RefreshTurnStart가 진영 순서를 보장하며 호출)
+    // (Faction.RefreshTurnStart가 진영 순서를 보장하며 호출)
     public void OnMyTurnStart()
     {
         if (isEmpty || isWaiting)
@@ -286,7 +282,7 @@ public class Entity : MonoBehaviour
 
         if (isMine && !isEmpty)
         {
-            EntityManager.Inst.EntityMouseDown(this);
+            Services.Get<IBoardInput>().EntityMouseDown(this);
         }
     }
 
@@ -294,11 +290,11 @@ public class Entity : MonoBehaviour
     private void OnMouseUp()
     {
         // 손가락을 떼면(터치) 확대 미리보기를 해제한다 — OnMouseExit가 터치 릴리스에서 호출되지 않는 문제 대응
-        CardManager.Inst.HideFieldPreview(this);
+        Services.Get<ICardManager>().HideFieldPreview(this);
 
         if (isMine && !isEmpty)
         {
-            EntityManager.Inst.EntityMouseUp();
+            Services.Get<IBoardInput>().EntityMouseUp();
         }
     }
 
@@ -307,7 +303,7 @@ public class Entity : MonoBehaviour
     {
         if (isMine && !isEmpty)
         {
-            EntityManager.Inst.EntityMouseDrag();
+            Services.Get<IBoardInput>().EntityMouseDrag();
         }
     }
 
@@ -318,13 +314,13 @@ public class Entity : MonoBehaviour
 
         if (!isEmpty)
         {
-            CardManager.Inst.ShowFieldPreview(this);
+            Services.Get<ICardManager>().ShowFieldPreview(this);
         }
     }
 
     // 마우스 벗어남 — 미리보기 숨김 (Unity 마우스 메시지)
     private void OnMouseExit()
     {
-        CardManager.Inst.HideFieldPreview(this);
+        Services.Get<ICardManager>().HideFieldPreview(this);
     }
 }

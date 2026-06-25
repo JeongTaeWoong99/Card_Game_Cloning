@@ -1,61 +1,34 @@
 using System.Collections.Generic;
 using UnityEngine;
-using DG.Tweening;
 
 // 엔티티 간 공격 해석을 담당한다. 모든 전투 피해는 현재 HP의 절반(소수점 버림, 최소 1).
 // 분기: 근접(일반·힐러·방패, 반격 O) / 흡혈(반격 O + 생존 시 회복) / 무쌍(광역, 반격 O) / 원거리(화살, 반격 X).
 // 공통 후처리(이동 정렬 원복 → 사망 정리/재정렬 → 승패 판정)를 한곳에 모았다.
-public class CombatSystem : MonoBehaviour
+public class CombatSystem : MonoService<ICombatSystem>, ICombatSystem
 {
-    public static CombatSystem Inst { get; private set; }
-
-    private const float MoveTime          = 0.4f; // 근접 공격자 이동(왕복) 한 구간 시간
-    private const float DamageRatio       = 0.5f; // 공격 피해 = 현재 HP의 절반
-    private const float CounterRatio      = 0.5f; // 반격 피해 = 상대 현재 HP의 절반
-    private const float MusouSplashRatio  = 0.5f; // 무쌍 인접 추가 피해 비율(본체 피해의 절반 = 원래 HP의 25%)
-    private const int   VampireHealAmount = 3;    // 흡혈형이 공격 시 회복하는 고정량
+    // behaviour의 공격 연출이 동일 수치로 계산하도록 공개한다
+    public const float MoveTime     = 0.4f; // 근접 공격자 이동(왕복) 한 구간 시간
+    public const float DamageRatio  = 0.5f; // 공격 피해 = 현재 HP의 절반
+    public const float CounterRatio = 0.5f; // 반격 피해 = 상대 현재 HP의 절반
 
     [CenterHeader("< 참조 >")]
     [SerializeField] private GameObject _damagePrefab; // 피해 -N 팝업
     [SerializeField] private GameObject _healPrefab;   // 회복·버프 +N 팝업 (색·크기 별도)
     [SerializeField] private GameObject _arrowPrefab;
 
-    // 싱글톤 등록 (Unity 메시지)
-    private void Awake()
-    {
-        Inst = this;
-    }
-
     #region 공격
 
-    // 공격 진입점 — 공격자 속성에 따라 근접/무쌍/원거리로 분기한다 (EntityManager.EntityMouseUp·EnemyAI가 호출)
+    // 공격 진입점 — 공통 선처리 후, 공격 연출/해석은 타입별 behaviour에 위임한다 (EntityManager.EntityMouseUp·EnemyAI가 호출)
     public void Attack(Entity attacker, Entity defender)
     {
         attacker.attackable = false;
         attacker.RefreshSleepParticle(); // 공격을 마쳐 더는 공격할 수 없음을 zzz로 표시
 
-        switch (attacker.CardType)
-        {
-            case ECardType.Ranged:
-                RangedAttack(attacker, defender);
-                break;
-
-            case ECardType.Musou:
-                MusouAttack(attacker, defender);
-                break;
-
-            case ECardType.Vampire:
-                VampireAttack(attacker, defender);
-                break;
-
-            default: // Normal, Healer, Shield
-                MeleeAttack(attacker, defender);
-                break;
-        }
+        attacker.Behaviour.Attack(attacker, defender);
     }
 
-    // 현재 HP에 비율을 적용한 피해(소수점 버림, 최소 1)
-    private static int CalcDamage(int hp, float ratio)
+    // 현재 HP에 비율을 적용한 피해(소수점 버림, 최소 1) — behaviour의 공격 연출이 공유한다
+    public static int CalcDamage(int hp, float ratio)
     {
         return Mathf.Max(1, Mathf.FloorToInt(hp * ratio));
     }
@@ -64,131 +37,36 @@ public class CombatSystem : MonoBehaviour
     public (int dealt, int counter) PredictDamage(Entity attacker, Entity defender)
     {
         int dealt   = defender.ApplyDefense(CalcDamage(attacker.health, DamageRatio));
-        int counter = attacker.CardType == ECardType.Ranged
-            ? 0
-            : attacker.ApplyDefense(CalcDamage(defender.health, CounterRatio));
+        int counter = attacker.Behaviour.ReceivesCounter
+            ? attacker.ApplyDefense(CalcDamage(defender.health, CounterRatio))
+            : 0;
 
         return (dealt, counter);
     }
 
-    // 근접(일반·힐러·방패) — 대상 위치로 이동 후 양측 현재 HP 절반씩 동시 피해(반격 O)
-    private void MeleeAttack(Entity attacker, Entity defender)
+    // 화살 발사 primitive — 원거리 공격 연출·후방 견제·투사체 스킬이 공유한다 (도착 시 onHit 실행)
+    public void FireArrow(Vector3 from, Vector3 to, System.Action onHit)
     {
-        attacker.GetComponent<Order>().SetMostFrontOrder(true);
-
-        DOTween.Sequence()
-            .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
-            .AppendCallback(() =>
-            {
-                // 순서 의존을 없애기 위해 양측 피해를 먼저 계산(현재 HP 절반·방패 경감)한 뒤 동시 적용한다
-                int toDefender = defender.ApplyDefense(CalcDamage(attacker.health, DamageRatio));
-                int toAttacker = attacker.ApplyDefense(CalcDamage(defender.health, CounterRatio));
-
-                defender.Damaged(toDefender);
-                attacker.Damaged(toAttacker);
-                SpawnDamage(toDefender, defender.transform);
-                SpawnDamage(toAttacker, attacker.transform);
-            })
-            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
-            .OnComplete(() => AttackCallback(attacker, defender));
-    }
-
-    // 흡혈 — 근접 이동 후 대상에 피해 → 반격을 받고 → 제자리로 돌아온 뒤 살아남았으면 회복(+VampireHealAmount)
-    private void VampireAttack(Entity attacker, Entity defender)
-    {
-        attacker.GetComponent<Order>().SetMostFrontOrder(true);
-
-        bool attackerDied = false;
-
-        DOTween.Sequence()
-            .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
-            .AppendCallback(() =>
-            {
-                int defenderHp = defender.health; // 반격용 — 공격 전 HP 캡처
-                int toDefender = defender.ApplyDefense(CalcDamage(attacker.health, DamageRatio));
-
-                defender.Damaged(toDefender);
-                SpawnDamage(toDefender, defender.transform);
-
-                int toAttacker = attacker.ApplyDefense(CalcDamage(defenderHp, CounterRatio));
-                attackerDied   = attacker.Damaged(toAttacker);
-                SpawnDamage(toAttacker, attacker.transform);
-            })
-            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
-            .AppendCallback(() =>
-            {
-                if (!attackerDied) // 제자리로 돌아온 뒤 생존 시 회복
-                {
-                    attacker.Heal(VampireHealAmount);
-                }
-            })
-            .OnComplete(() => AttackCallback(attacker, defender));
-    }
-
-    // 무쌍 — 이동 후 대상에 현재 HP 50%, 인접 적 1체(랜덤)에 25% 피해 + 대상의 반격(현재 HP 절반)을 받음
-    private void MusouAttack(Entity attacker, Entity defender)
-    {
-        attacker.GetComponent<Order>().SetMostFrontOrder(true);
-
-        Entity splashTarget = EntityManager.Inst.GetRandomAdjacentFront(defender);
-
-        DOTween.Sequence()
-            .Append(attacker.transform.DOMove(defender.originPos, MoveTime)).SetEase(Ease.InSine)
-            .AppendCallback(() =>
-            {
-                int defenderHp = defender.health; // 반격용 — 공격 전 HP 캡처
-                int mainDamage = defender.ApplyDefense(CalcDamage(attacker.health, DamageRatio));
-
-                defender.Damaged(mainDamage);
-                SpawnDamage(mainDamage, defender.transform);
-
-                if (splashTarget != null)
-                {
-                    int splashDamage = splashTarget.ApplyDefense(CalcDamage(attacker.health, DamageRatio * MusouSplashRatio));
-                    splashTarget.Damaged(splashDamage);
-                    SpawnDamage(splashDamage, splashTarget.transform);
-                }
-
-                int toAttacker = attacker.ApplyDefense(CalcDamage(defenderHp, CounterRatio));
-                attacker.Damaged(toAttacker);
-                SpawnDamage(toAttacker, attacker.transform);
-            })
-            .Append(attacker.transform.DOMove(attacker.originPos, MoveTime)).SetEase(Ease.OutSine)
-            .OnComplete(() => AttackCallback(attacker, defender, splashTarget));
-    }
-
-    // 원거리 — 제자리에서 화살을 발사하고, 화살이 도착했을 때만 대상에 현재 HP 절반 피해(반격 X)
-    private void RangedAttack(Entity attacker, Entity defender)
-    {
-        int rawDamage = CalcDamage(attacker.health, DamageRatio);
-
         var arrow = Instantiate(_arrowPrefab).GetComponent<Arrow>();
-        arrow.Fire(attacker.transform.position, defender.transform.position, () =>
-        {
-            int damage = defender.ApplyDefense(rawDamage);
-            defender.Damaged(damage);
-            SpawnDamage(damage, defender.transform);
-            AttackCallback(attacker, defender);
-        });
+        arrow.Fire(from, to, onHit);
     }
 
     // 지정 위치에서 적 전방 1체로 화살을 쏘고, 도착 시 피해·정리·승패 판정 (후방 원거리 견제·투사체 스킬이 호출)
     public void FirePokeArrow(Vector3 from, Entity target, int damage)
     {
-        var arrow = Instantiate(_arrowPrefab).GetComponent<Arrow>();
-        arrow.Fire(from, target.transform.position, () =>
+        FireArrow(from, target.transform.position, () =>
         {
             int dealt = target.ApplyDefense(damage);
             target.Damaged(dealt);
             SpawnDamage(dealt, target.transform);
 
-            EntityManager.Inst.RemoveDeadAndRealign(target);
-            GameManager.Inst.CheckBattleResult();
+            Services.Get<IBoardState>().RemoveDeadAndRealign(target);
+            Services.Get<IGameFlow>().CheckBattleResult();
         });
     }
 
-    // 공격 연출 종료 후 — 끌어올린 order 원복 → 사망 정리/재정렬 → 승패 판정 (각 공격 메서드가 호출)
-    private void AttackCallback(params Entity[] entities)
+    // 공격 연출 종료 후 — 끌어올린 order 원복 → 사망 정리/재정렬 → 승패 판정 (behaviour의 공격 연출이 호출)
+    public void FinishAttack(params Entity[] entities)
     {
         var involved = new List<Entity>();
 
@@ -203,8 +81,8 @@ public class CombatSystem : MonoBehaviour
             involved.Add(entity);
         }
 
-        EntityManager.Inst.RemoveDeadAndRealign(involved.ToArray());
-        GameManager.Inst.CheckBattleResult();
+        Services.Get<IBoardState>().RemoveDeadAndRealign(involved.ToArray());
+        Services.Get<IGameFlow>().CheckBattleResult();
     }
 
     #endregion

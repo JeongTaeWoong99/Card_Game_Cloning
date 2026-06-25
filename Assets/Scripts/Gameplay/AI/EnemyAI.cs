@@ -5,21 +5,13 @@ using UnityEngine;
 // 상대(컴퓨터)의 행동을 담당한다.
 // Setup 페이즈: 자기 6장을 앞줄 3 + 뒷줄 3에 자동 배치.
 // Battle 페이즈: 공격 가능한 앞줄 엔티티로 내 앞줄 카드를 무작위·시간차로 공격하고 턴을 종료.
-public class EnemyAI : MonoBehaviour
+public class EnemyAI : MonoService<IEnemyAI>, IEnemyAI
 {
-    public static EnemyAI Inst { get; private set; }
-
     private const int   RowCount        = 3;    // 한 행에 놓을 카드 수
     private const float SkillCastChance = 0.6f; // 보유 스킬을 한 번 더 시전할 확률
 
     private readonly WaitForSeconds _putDelay    = new WaitForSeconds(1f);
     private readonly WaitForSeconds _attackDelay = new WaitForSeconds(2f);
-
-    // 싱글톤 등록 (Unity 메시지)
-    private void Awake()
-    {
-        Inst = this;
-    }
 
     #region 배치 페이즈
 
@@ -32,11 +24,11 @@ public class EnemyAI : MonoBehaviour
     // 앞줄 3장 → 뒷줄 3장 순으로 자기 손패를 배치한다
     private IEnumerator SetupPlaceCo()
     {
-        bool fast = TurnManager.Inst.IsFastMode; // 페스트 모드면 딜레이 없이 한순간에 배치
+        bool fast = Services.Get<ITurnManager>().IsFastMode; // 페스트 모드면 딜레이 없이 한순간에 배치
 
         for (int i = 0; i < RowCount; i++)
         {
-            CardManager.Inst.TryPutCard(false, true); // 앞줄
+            Services.Get<ICardManager>().TryPutCard(false, true); // 앞줄
             if (!fast)
             {
                 yield return _putDelay;
@@ -45,14 +37,14 @@ public class EnemyAI : MonoBehaviour
 
         for (int i = 0; i < RowCount; i++)
         {
-            CardManager.Inst.TryPutCard(false, false); // 뒷줄
+            Services.Get<ICardManager>().TryPutCard(false, false); // 뒷줄
             if (!fast)
             {
                 yield return _putDelay;
             }
         }
 
-        CardManager.Inst.DrawSkillCards(false, TurnManager.SetupSkillDraw); // 배치 완료 시 상대 스킬 4장
+        Services.Get<ICardManager>().DrawSkillCards(false, TurnManager.SetupSkillDraw); // 배치 완료 시 상대 스킬 4장
     }
 
     #endregion
@@ -74,13 +66,13 @@ public class EnemyAI : MonoBehaviour
         yield return UseSkillsCo();
 
         // 스킬(무작위 피해)로 게임이 끝났으면 즉시 중단한다
-        if (TurnManager.Inst.isLoading)
+        if (Services.Get<ITurnManager>().isLoading)
         {
             yield break;
         }
 
         // 공격 가능한 상대 앞줄 엔티티만 모아 순서를 섞는다
-        var attackers = new List<Entity>(EntityManager.Inst.OtherFront).FindAll(x => x.attackable);
+        var attackers = new List<Entity>(Services.Get<IBoardState>().OtherFront).FindAll(x => x.attackable);
         Utils.Shuffle(attackers);
 
         foreach (var attacker in attackers)
@@ -92,28 +84,28 @@ public class EnemyAI : MonoBehaviour
             }
 
             // 매 공격마다 최신 내 앞줄을 후보로 삼아 무작위 타겟을 고른다 (도발: 방패형이 있으면 방패형만)
-            var defenders = new List<Entity>(EntityManager.Inst.MyFront)
-                .FindAll(target => EntityManager.Inst.CanMeleeTarget(attacker, target));
+            var defenders = new List<Entity>(Services.Get<IBoardState>().MyFront)
+                .FindAll(target => Services.Get<IBoardState>().CanMeleeTarget(attacker, target));
             if (defenders.Count == 0)
             {
                 break;
             }
 
-            // 원거리는 도발을 무시하므로 방패가 아닌 카드를 우선 저격하고, 방패만 남으면 방패를 친다
-            if (attacker.CardType == ECardType.Ranged)
+            // 도발 무시 공격자(원거리)는 도발 유발자가 아닌 카드를 우선 저격하고, 도발 유발자만 남으면 그것을 친다
+            if (attacker.Behaviour.IgnoresTaunt)
             {
-                var nonShield = defenders.FindAll(target => target.CardType != ECardType.Shield);
-                if (nonShield.Count > 0)
+                var nonTaunter = defenders.FindAll(target => !target.Behaviour.IsTaunter);
+                if (nonTaunter.Count > 0)
                 {
-                    defenders = nonShield;
+                    defenders = nonTaunter;
                 }
             }
 
             int rand = Random.Range(0, defenders.Count);
-            CombatSystem.Inst.Attack(attacker, defenders[rand]);
+            Services.Get<ICombatSystem>().Attack(attacker, defenders[rand]);
 
             // 공격 도중 게임이 끝나면(전멸 등) 즉시 중단한다
-            if (TurnManager.Inst.isLoading)
+            if (Services.Get<ITurnManager>().isLoading)
             {
                 yield break;
             }
@@ -121,7 +113,7 @@ public class EnemyAI : MonoBehaviour
             yield return _attackDelay;
         }
 
-        TurnManager.Inst.EndTurn();
+        Services.Get<ITurnManager>().EndTurn();
     }
 
     // 마나가 되는 동안 확률적으로 보유 스킬을 시전한다 (게임 종료 시 즉시 중단)
@@ -129,14 +121,14 @@ public class EnemyAI : MonoBehaviour
     {
         while (Random.value < SkillCastChance)
         {
-            if (!CardManager.Inst.TryCastOtherSkill())
+            if (!Services.Get<ICardManager>().TryCastOtherSkill())
             {
                 break;
             }
 
             yield return _attackDelay;
 
-            if (TurnManager.Inst.isLoading)
+            if (Services.Get<ITurnManager>().isLoading)
             {
                 yield break;
             }

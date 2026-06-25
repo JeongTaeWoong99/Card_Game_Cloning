@@ -10,7 +10,7 @@ public class Arrow : MonoBehaviour
     private const float FlightTime  = 0.35f; // 시작→대상 비행 시간
 
     // 시작점에서 대상 위치로 발사한다 — 진행 방향으로 회전, 도착 시 onArrive 호출 후 자기 파괴
-    // (CombatSystem.RangedAttack이 호출)
+    // (CombatSystem.FireArrow가 호출)
     public void Fire(Vector3 start, Vector3 target, Action onArrive)
     {
         transform.position = start;

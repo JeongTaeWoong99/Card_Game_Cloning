@@ -45,7 +45,7 @@ public class TitlePanel : MonoBehaviour
             yield return _dissolveMat.DOFloat(1f, DissolveProp, DissolveTime).WaitForCompletion();
         }
 
-        GameManager.Inst.StartGame();
+        Services.Get<IGameFlow>().StartGame();
         gameObject.SetActive(false);
     }
 

@@ -19,7 +19,7 @@ public class ManaUI : MonoBehaviour
     {
         ManaManager.ManaChanged += OnManaChanged;
 
-        Refresh(ManaManager.Inst.GetMana(_isMine));
+        Refresh(Services.Get<IManaManager>().GetMana(_isMine));
     }
 
     // 이벤트 구독 해제 (Unity 메시지)
