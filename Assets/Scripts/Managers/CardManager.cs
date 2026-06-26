@@ -681,11 +681,12 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     {
         bool isTargeting = _selectSkillCard.skill.targeting != ESkillTargeting.None;
 
-        // 손패 영역 안으로 되돌아오면 원래 손패 모습으로 복귀(놓으면 취소)
+        // 손패 영역 안에서는 확대(미리보기) 상태로 유지한다 — 누르고 있는 동안 호버와 동일한 모습
+        // (마나가 충분해 누르는 즉시 드래그로 진입해도, 영역을 벗어나기 전까지는 확대로 보이게 한다)
         if (_onMyCardArea)
         {
             _selectSkillCard.SetVisible(true);
-            _selectSkillCard.MoveTransform(_selectSkillCard.originPRS, false);
+            EnlargeSkillCard(true, _selectSkillCard);
 
             if (isTargeting)
             {
