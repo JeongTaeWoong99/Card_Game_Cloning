@@ -18,6 +18,9 @@ public class BoardInputController : MonoService<IBoardInput>, IBoardInput
     // 공격자를 선택해 타겟팅 중인지 — 이때 호버 카드 미리보기를 막는다 (CardManager가 호출)
     public bool IsSelectingAttacker => _selectEntity != null;
 
+    // 지정 엔티티가 현재 선택된 공격자 자신인지 — 자기 자신을 누른 동안엔 미리보기를 허용하기 위함 (CardManager가 호출)
+    public bool IsSelectedAttacker(Entity entity) => _selectEntity == entity;
+
     private bool ExistTargetPickEntity => _targetPickEntity != null;
 
     // 내 전투 턴 + 로딩 중이 아닐 때만 보드 입력을 받는다

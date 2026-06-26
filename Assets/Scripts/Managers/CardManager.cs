@@ -435,9 +435,13 @@ int            layer = LayerMask.NameToLayer("MyCardArea");
     // (Entity.OnMouseOver가 호출)
     public void ShowFieldPreview(Entity entity)
     {
-        // 드래그 중·빈 슬롯·공격 타겟팅 중이거나, 포인터를 누르고 있지 않으면 미리보기를 띄우지 않는다
+        // 드래그 중·빈 슬롯이거나, 포인터를 누르고 있지 않으면 미리보기를 띄우지 않는다
         // (press 기반 — 터치 릴리스 후 얼어붙은 포인터로 상대 엔티티 미리보기가 잔존하는 문제 방지)
-        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty || !Input.GetMouseButton(0) || Services.Get<IBoardInput>().IsSelectingAttacker)
+        // 공격자를 선택해 적을 향해 타겟팅 중일 때는 호버 미리보기를 막되, 누른 엔티티 자신(= 선택된 공격자)은 허용한다
+        // (내 턴에 내 전방 카드를 눌러도 정보 미리보기가 보이도록 — 누름이 곧 공격자 선택이라 무조건 막히던 문제 수정)
+        IBoardInput boardInput = Services.Get<IBoardInput>();
+        if (_isMyCardDrag || _isMySkillCardDrag || entity.isEmpty || !Input.GetMouseButton(0)
+            || (boardInput.IsSelectingAttacker && !boardInput.IsSelectedAttacker(entity)))
         {
             return;
         }

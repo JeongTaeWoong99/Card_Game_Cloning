@@ -5,6 +5,9 @@ public interface IBoardInput
 {
     bool IsSelectingAttacker { get; }
 
+    // 지정 엔티티가 현재 선택된 공격자 자신인지 (자기 자신 호버 미리보기 허용 판정용)
+    bool IsSelectedAttacker(Entity entity);
+
     void EntityMouseDown(Entity entity);
     void EntityMouseUp();
     void EntityMouseDrag();
