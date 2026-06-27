@@ -60,6 +60,10 @@ public class AspectRatioController : MonoBehaviour
     {
         if (_camera == null) return;
 
+        // 에디터에서 Game/Scene 뷰가 0 크기로 보고되는 순간(탭 닫힘·레이아웃 재구성·최소화 등)에는
+        // 나눗셈 결과가 NaN/Infinity가 되어 카메라 rect가 오염되므로 계산을 건너뛴다
+        if (Screen.width <= 0 || Screen.height <= 0) return;
+
         _lastScreenWidth  = Screen.width;
         _lastScreenHeight = Screen.height;
 
